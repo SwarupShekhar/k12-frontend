@@ -1,0 +1,138 @@
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import ProtectedClient from '@/app/components/ProtectedClient';
+import { useAuthContext } from '@/app/context/AuthContext';
+import { useTutorDashboard } from '@/app/Hooks/useTutorDashboard';
+
+export default function TutorDashboardPage() {
+  const { user } = useAuthContext();
+  const { todaySessions, upcomingBookings, stats, loading } = useTutorDashboard();
+
+  return (
+    <ProtectedClient roles={['tutor']}>
+      <div className="min-h-screen p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
+
+        {/* HERO SECTION */}
+        <section className="bg-glass rounded-[2rem] p-8 md:p-10 border border-white/20 shadow-lg relative overflow-hidden">
+          {/* Decorative background */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[var(--color-secondary)] opacity-5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+
+          <div className="relative z-10">
+            <h1 className="text-3xl md:text-4xl font-bold text-[var(--color-text-primary)] mb-2">
+              Welcome, {user?.first_name || 'Tutor'}
+            </h1>
+            <p className="text-[var(--color-text-secondary)] text-lg mb-8">
+              Here are your teaching sessions for today
+            </p>
+
+            <div className="flex flex-wrap gap-4">
+              <div className="px-6 py-3 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center gap-3 shadow-sm">
+                <span className="text-2xl">📚</span>
+                <div>
+                  <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider">Today's Sessions</p>
+                  <p className="text-xl font-bold text-[var(--color-primary)]">
+                    {loading ? '...' : stats.todayCount}
+                  </p>
+                </div>
+              </div>
+              <div className="px-6 py-3 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center gap-3 shadow-sm">
+                <span className="text-2xl">🗓️</span>
+                <div>
+                  <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider">This Week</p>
+                  <p className="text-xl font-bold text-[var(--color-secondary)]">
+                    {loading ? '...' : stats.weekCount}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+          {/* TODAY'S SESSIONS */}
+          <section className="bg-glass rounded-[2rem] p-6 border border-white/20 shadow-sm flex flex-col h-full">
+            <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-6 flex items-center gap-2">
+              <span>🎓</span> Today's Classes
+            </h2>
+
+            <div className="flex-1 space-y-4">
+              {loading ? (
+                <p className="text-[var(--color-text-secondary)]">Loading sessions...</p>
+              ) : todaySessions.length > 0 ? (
+                todaySessions.map((session: any) => (
+                  <div key={session.id} className="p-4 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)]/30 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-bold text-[var(--color-primary)]">
+                        {session.start_time ? new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Time TBD'}
+                      </span>
+                      {session.meet_link && (
+                        <a href={session.meet_link} target="_blank" rel="noopener noreferrer" className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full hover:opacity-90 transition-opacity">
+                          Join Class
+                        </a>
+                      )}
+                    </div>
+                    <h3 className="font-bold text-[var(--color-text-primary)]">
+                      {session.subject_name || 'Tutoring Session'}
+                    </h3>
+                    <p className="text-sm text-[var(--color-text-secondary)] mb-3">
+                      Student: {session.child_name || 'Unknown'}
+                    </p>
+
+                    {session.whiteboard_link && (
+                      <a href={session.whiteboard_link} target="_blank" rel="noopener noreferrer" className="inline-block text-xs font-medium text-[var(--color-secondary)] hover:underline">
+                        Open Whiteboard →
+                      </a>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 rounded-xl bg-[var(--color-surface)]/50 border border-[var(--color-border)] border-dashed">
+                  <p className="text-[var(--color-text-secondary)]">You have no sessions scheduled for today.</p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* UPCOMING BOOKINGS TO SCHEDULE */}
+          <section className="bg-glass rounded-[2rem] p-6 border border-white/20 shadow-sm flex flex-col h-full">
+            <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-6 flex items-center gap-2">
+              <span>📝</span> Confirmed & Upcoming
+            </h2>
+
+            <div className="flex-1 space-y-4">
+              {loading ? (
+                <p className="text-[var(--color-text-secondary)]">Loading bookings...</p>
+              ) : upcomingBookings.length > 0 ? (
+                upcomingBookings.map((booking: any) => (
+                  <div key={booking.id} className="p-4 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)]">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-bold text-[var(--color-text-primary)]">
+                        {booking.subject || 'Subject'}
+                      </h3>
+                      <Link href={`/tutor/bookings/${booking.id}/create-session`} className="text-xs font-bold text-[var(--color-primary)] bg-blue-50 px-3 py-1 rounded-full hover:bg-blue-100 transition-colors">
+                        Create Session →
+                      </Link>
+                    </div>
+                    <p className="text-sm text-[var(--color-text-secondary)]">
+                      Student: {booking.student_name || 'Student'}
+                    </p>
+                    <p className="text-xs text-[var(--color-text-secondary)] opacity-80 mt-1">
+                      Requested: {booking.requested_time || booking.date ? new Date(booking.requested_time || booking.date).toLocaleDateString() : 'Date TBD'}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 rounded-xl bg-[var(--color-surface)]/50 border border-[var(--color-border)] border-dashed">
+                  <p className="text-[var(--color-text-secondary)]">No upcoming bookings to show.</p>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      </div>
+    </ProtectedClient>
+  );
+}
