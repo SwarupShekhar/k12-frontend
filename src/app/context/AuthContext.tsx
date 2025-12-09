@@ -92,14 +92,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData);
 
         // 3. Redirect immediately based on role
+        console.log('[Auth] Login successful. User:', userData);
         if (userData?.role === 'parent') {
+          console.log('[Auth] Redirecting to /parent/dashboard');
           router.push('/parent/dashboard');
         } else if (userData?.role === 'student') {
+          console.log('[Auth] Redirecting to /student/dashboard');
           router.push('/student/dashboard');
         } else if (userData?.role === 'tutor') {
+          console.log('[Auth] Redirecting to /tutor/dashboard');
           router.push('/tutor/dashboard');
         } else {
           // Default fallback
+          console.log('[Auth] No role matched. Defaulting to /parent/dashboard');
           router.push('/parent/dashboard');
         }
       }
