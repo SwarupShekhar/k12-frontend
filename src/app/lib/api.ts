@@ -2,7 +2,11 @@
 import axios, { AxiosError } from 'axios';
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'https://k-12-backend.onrender.com';
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  'https://k-12-backend.onrender.com';
+
+console.log('[API] Connected to:', API_URL);
 
 export const api = axios.create({
   baseURL: API_URL,
