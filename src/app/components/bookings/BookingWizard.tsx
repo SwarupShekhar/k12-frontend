@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import useCatalog from '@/app/Hooks/useCatalog';
 import api from '@/app/lib/api';
+import { useAuthContext } from '@/app/context/AuthContext';
 
 
 type Step = 0 | 1 | 2 | 3 | 4;
@@ -64,6 +65,8 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
         }
     }, [loadingCatalog, curricula, packages, curriculumId, packageId]);
 
+    const { user } = useAuthContext();
+
     async function submitBooking() {
         if (!studentId || subjectIds.length === 0 || !curriculumId || !packageId || !start || !end) {
             setError('Please complete all required fields. Select at least one subject.');
@@ -88,10 +91,12 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
             const res = await api.post('/bookings/create', payload);
             const newBooking = res.data;
 
-            // Redirect to booking detail (we can build this later) or parent dashboard for now
-            router.push(`/parent/dashboard`);
-            // If you prefer a booking detail page later:
-            // router.push(`/bookings/${newBooking.id}`);
+            // Redirect based on role
+            if (user?.role === 'student') {
+                router.push('/students/dashboard');
+            } else {
+                router.push('/parent/dashboard');
+            }
         } catch (err: any) {
             console.error('Booking create error', err);
             setError(err?.response?.data?.message || 'Something went wrong while creating the booking.');
@@ -245,8 +250,8 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
                                         type="button"
                                         onClick={() => toggleSubject(s.id)}
                                         className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition-all ${isSelected
-                                                ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)] shadow-md'
-                                                : 'bg-[var(--color-surface)] text-[var(--color-text-primary)] border-[var(--color-border)] hover:border-[var(--color-primary)]'
+                                            ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)] shadow-md'
+                                            : 'bg-[var(--color-surface)] text-[var(--color-text-primary)] border-[var(--color-border)] hover:border-[var(--color-primary)]'
                                             }`}
                                     >
                                         <span>{s.name}</span>
