@@ -40,7 +40,7 @@ export default function Navbar() {
           {/* Show Dashboard link if logged in */}
           {user && (
             <Link
-              href={user.role === 'student' ? '/student/dashboard' : '/parent/dashboard'}
+              href={user.role === 'student' ? '/students/dashboard' : '/parent/dashboard'}
               className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] font-medium transition-colors text-sm lg:text-base"
             >
               Dashboard

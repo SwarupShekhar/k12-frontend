@@ -97,8 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('[Auth] Redirecting to /parent/dashboard');
           router.push('/parent/dashboard');
         } else if (userData?.role === 'student') {
-          console.log('[Auth] Redirecting to /student/dashboard');
-          router.push('/student/dashboard');
+          console.log('[Auth] Redirecting to /students/dashboard');
+          router.push('/students/dashboard');
         } else if (userData?.role === 'tutor') {
           console.log('[Auth] Redirecting to /tutor/dashboard');
           router.push('/tutor/dashboard');
