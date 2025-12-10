@@ -45,9 +45,9 @@ export default function SignupPage() {
 
       // Redirect handled by login or useEffect, but explicit push here for safety
       if (validRole === 'student') {
-        router.push('/student/dashboard');
+        router.push('/onboarding/student-welcome');
       } else {
-        router.push('/onboarding'); // Parents usually go to onboarding flow first
+        router.push('/onboarding'); // Parents go to onboarding welcome
       }
     } catch (err: any) {
       console.error(err);
