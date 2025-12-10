@@ -120,7 +120,7 @@ export default function ExpertsPage() {
                         className="inline-block px-8 py-4 rounded-full bg-[var(--color-primary)] text-white font-bold text-lg hover:opacity-90 hover:scale-105 transition-all shadow-lg shadow-blue-500/20"
                         {...(user ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                     >
-                        Start your free assessment
+                        Book Free Demo Session
                     </Link>
                 </div>
             </section>

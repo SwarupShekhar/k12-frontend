@@ -55,7 +55,7 @@ export default function Navbar() {
             className="hidden lg:block px-5 py-2 rounded-full bg-[var(--color-primary)] text-white font-bold text-sm hover:opacity-90 hover:scale-105 transition-all shadow-lg shadow-blue-500/20"
             {...(user ? { target: "_blank", rel: "noopener noreferrer" } : {})}
           >
-            Book Free Assessment
+            Book Free Demo Session
           </Link>
 
           {user ? (
