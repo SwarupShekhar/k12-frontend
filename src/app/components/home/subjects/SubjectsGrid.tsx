@@ -20,8 +20,8 @@ export default function SubjectsGrid() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {subjectsData.map((subject) => (
-                        <SubjectCard key={subject.id} subject={subject} />
+                    {subjectsData.map((subject, index) => (
+                        <SubjectCard key={subject.id} subject={subject} index={index} />
                     ))}
                 </div>
             </div>
