@@ -16,7 +16,8 @@ export default function LoginPage() {
       await login(email.trim(), password);
     } catch (err: any) {
       console.error(err);
-      setError(err?.message || 'Login failed');
+      const msg = err?.response?.data?.message || err?.message || 'Login failed. Please check your credentials.';
+      setError(msg);
     }
   }
 

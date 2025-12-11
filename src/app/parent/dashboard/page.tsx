@@ -89,7 +89,7 @@ export default function ParentDashboardPage() {
                 <div className="text-center py-8">
                   <p className="text-[var(--color-text-primary)] font-bold mb-1">No children added yet</p>
                   <p className="text-sm text-[var(--color-text-secondary)] mb-4">Add your child to start personalised tutoring sessions</p>
-                  <Link href="/students/new" className="text-sm text-[var(--color-primary)] font-bold underline decoration-2 underline-offset-4 hover:opacity-80">
+                  <Link href="/onboarding/student" className="text-sm text-[var(--color-primary)] font-bold underline decoration-2 underline-offset-4 hover:opacity-80">
                     Add your first child
                   </Link>
                 </div>
@@ -98,7 +98,7 @@ export default function ParentDashboardPage() {
 
             <div className="mt-8 pt-6 border-t border-[var(--color-border)]">
               <Link
-                href="/students/new"
+                href="/onboarding/student"
                 className="flex items-center justify-center w-full py-3 rounded-xl bg-[var(--color-primary)] text-white font-bold hover:opacity-90 transition-all shadow-md"
               >
                 + Add another child
@@ -141,7 +141,7 @@ export default function ParentDashboardPage() {
                 ))
               ) : (
                 <div className="text-center py-8">
-                  <p className="text-[var(--color-text-primary)] font-bold mb-1">You do not have any sessions booked yet</p>
+                  <p className="text-[var(--color-text-primary)] font-bold mb-1">You haven&apos;t booked any sessions yet.</p>
                   <Link href="/bookings/new" className="inline-block mt-4 px-6 py-2 rounded-full border border-[var(--color-primary)] text-[var(--color-primary)] font-bold text-sm hover:bg-[var(--color-primary)] hover:text-white transition-all">
                     Book your first session
                   </Link>
@@ -162,9 +162,9 @@ export default function ParentDashboardPage() {
               <span className="block text-2xl mb-2">➕</span>
               <span className="font-bold text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)]">Book a new session</span>
             </Link>
-            <Link href="/bookings" className="p-4 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:scale-[1.02] transition-all group">
-              <span className="block text-2xl mb-2">📂</span>
-              <span className="font-bold text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)]">View all bookings</span>
+            <Link href="/onboarding/student" className="p-4 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:scale-[1.02] transition-all group">
+              <span className="block text-2xl mb-2">👶</span>
+              <span className="font-bold text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)]">Add Student</span>
             </Link>
             <button disabled className="p-4 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] opacity-60 cursor-not-allowed text-left">
               <span className="block text-2xl mb-2">📊</span>

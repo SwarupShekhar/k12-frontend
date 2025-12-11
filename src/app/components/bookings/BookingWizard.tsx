@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import useCatalog from '@/app/Hooks/useCatalog';
 import api from '@/app/lib/api';
 import { useAuthContext } from '@/app/context/AuthContext';
-
+import { differenceInMinutes, addHours, format } from 'date-fns';
 
 type Step = 0 | 1 | 2 | 3 | 4;
 
@@ -49,6 +49,7 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [dateError, setDateError] = useState<string | null>(null);
 
     // Pick sensible defaults once data is loaded
     useEffect(() => {
@@ -65,11 +66,54 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
         }
     }, [loadingCatalog, curricula, packages, curriculumId, packageId]);
 
+    // Auto-fill dates when entering step 3 (Schedule)
+    useEffect(() => {
+        if (step === 3 && !start && !end) {
+            // Default: Next full hour + 1 hour duration
+            const now = new Date();
+            const nextHour = addHours(now, 1);
+            nextHour.setMinutes(0, 0, 0); // Reset minutes/seconds
+
+            // Format for datetime-local: YYYY-MM-DDTHH:mm
+            // Note: We need local time string.
+            const toLocalISO = (d: Date) => {
+                const offset = d.getTimezoneOffset() * 60000;
+                return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+            }
+
+            setStart(toLocalISO(nextHour));
+            setEnd(toLocalISO(addHours(nextHour, 1)));
+        }
+    }, [step, start, end]);
+
+    // Optimize Validation
+    useEffect(() => {
+        if (start && end) {
+            const s = new Date(start);
+            const e = new Date(end);
+            const now = new Date();
+
+            if (s < now) {
+                setDateError("Booking cannot be in the past.");
+            } else if (e <= s) {
+                setDateError("End time must be after start time.");
+            } else {
+                setDateError(null);
+            }
+        }
+    }, [start, end]);
+
+
     const { user } = useAuthContext();
 
     async function submitBooking() {
         if (!studentId || subjectIds.length === 0 || !curriculumId || !packageId || !start || !end) {
             setError('Please complete all required fields. Select at least one subject.');
+            return;
+        }
+
+        if (dateError) {
+            setError(dateError);
             return;
         }
 
@@ -106,6 +150,14 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
     }
 
     const isLoadingAny = isStudentsLoading || loadingCatalog;
+
+    const canProceed = () => {
+        if (step === 0) return !!studentId;
+        if (step === 1) return subjectIds.length > 0 && !!curriculumId;
+        if (step === 2) return !!packageId;
+        if (step === 3) return !!start && !!end && !dateError;
+        return true;
+    }
 
     return (
         <div className="bg-glass rounded-2xl p-8 mb-8 mt-4 transition-all-fast">
@@ -197,22 +249,30 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
 
                     {/* Empty State */}
                     {!isStudentsLoading && students.length === 0 && (
-                        <div className="max-w-xl space-y-3">
-                            <p className="text-sm text-gray-600">
-                                You don’t have any students yet. Add your child first, then
-                                come back here to book a session.
+                        <div className="my-10 p-8 text-center rounded-2xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)]/50">
+                            <div className="text-4xl mb-4">👶</div>
+                            <h3 className="text-xl font-bold text-[var(--color-text-primary)] mb-2">You don&apos;t have any students yet</h3>
+                            <p className="text-[var(--color-text-secondary)] mb-6">
+                                Add your child first, then come back here to book a session.
                             </p>
+                            <button
+                                type="button"
+                                onClick={() => router.push('/onboarding/student?returnTo=booking')}
+                                className="px-6 py-3 rounded-xl bg-[var(--color-primary)] text-white font-bold shadow-lg hover:scale-105 transition-transform"
+                            >
+                                + Add a student
+                            </button>
                         </div>
                     )}
 
-                    {/* Add Student Button (Only if < 3) */}
-                    {!isStudentsLoading && students.length < 3 && (
+                    {/* Add Student Button (Only if < 3 and > 0) */}
+                    {!isStudentsLoading && students.length > 0 && students.length < 3 && (
                         <button
                             type="button"
-                            onClick={() => router.push('/onboarding/student')}
+                            onClick={() => router.push('/onboarding/student?returnTo=booking')}
                             className="inline-flex items-center px-4 py-2 mt-2 rounded-lg bg-[#F7C548] text-[#1C3A5A] text-sm font-medium shadow-sm hover:brightness-105"
                         >
-                            + Add a student
+                            + Add another student
                         </button>
                     )}
 
@@ -312,8 +372,14 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
                             type="datetime-local"
                             value={start}
                             onChange={(e) => setStart(e.target.value)}
+                            // Min = now
+                            min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
                             className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-shadow"
                         />
+                        {/* Inline validation */}
+                        {start && new Date(start) < new Date() && (
+                            <p className="text-xs text-red-500 mt-1">Start time cannot be in the past.</p>
+                        )}
                     </div>
 
                     <div>
@@ -324,8 +390,12 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
                             type="datetime-local"
                             value={end}
                             onChange={(e) => setEnd(e.target.value)}
+                            min={start} // basic HTML validation
                             className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-shadow"
                         />
+                        {dateError && (
+                            <p className="text-xs text-red-500 mt-1">{dateError}</p>
+                        )}
                     </div>
 
                     <div>
@@ -358,8 +428,8 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
                             },
                             { label: 'Curriculum', value: curricula?.find((c: any) => c.id === curriculumId)?.name ?? '—' },
                             { label: 'Package', value: packages?.find((p: any) => p.id === packageId)?.name ?? '—' },
-                            { label: 'Start', value: start || '—' },
-                            { label: 'End', value: end || '—' },
+                            { label: 'Start', value: start ? format(new Date(start), 'PP pp') : '—' },
+                            { label: 'End', value: end ? format(new Date(end), 'PP pp') : '—' },
                         ].map((item) => (
                             <div key={item.label}>
                                 <div className="text-[var(--color-text-secondary)] text-xs uppercase tracking-wide font-semibold">{item.label}</div>
@@ -390,8 +460,9 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
                     {step < 4 && (
                         <button
                             type="button"
+                            disabled={!canProceed()}
                             onClick={() => setStep((s) => (Math.min(4, s + 1) as Step))}
-                            className="px-6 py-2.5 rounded-xl bg-[var(--color-primary)] text-white text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all"
+                            className="px-6 py-2.5 rounded-xl bg-[var(--color-primary)] text-white text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                         >
                             Next
                         </button>

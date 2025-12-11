@@ -92,28 +92,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData);
 
         // 3. Redirect immediately based on role
+        // Note: We do NOT set loading to false here to prevent UI flash before redirect
         console.log('[Auth] Login successful. User:', userData);
+
         if (userData?.role === 'parent') {
-          console.log('[Auth] Redirecting to /parent/dashboard');
           router.push('/parent/dashboard');
         } else if (userData?.role === 'student') {
-          console.log('[Auth] Redirecting to /students/dashboard');
           router.push('/students/dashboard');
         } else if (userData?.role === 'tutor') {
-          console.log('[Auth] Redirecting to /tutor/dashboard');
           router.push('/tutor/dashboard');
         } else {
-          // Default fallback
-          console.log('[Auth] No role matched. Defaulting to /parent/dashboard');
           router.push('/parent/dashboard');
         }
+      } else {
+        // No token? unexpected
+        setLoading(false);
       }
     } catch (error) {
-      // Handle failure: Ensure loading is stopped before re-throwing
       console.error("Login failed:", error);
+      setLoading(false); // Only stop loading on error
       throw error;
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -121,7 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       await authLib.signup(payload);
-      // If backend returns token at signup, you can set it here instead of requiring login
+      // Determine redirect based on requested role if possible, or default to login
+      // If the backend auto-logs in, we would handle token here.
+      // For now, we assume signup -> login page or verify email
+      router.push('/login?signedUp=true');
+    } catch (error) {
+      console.error("Signup failed:", error);
+      throw error;
     } finally {
       setLoading(false);
     }

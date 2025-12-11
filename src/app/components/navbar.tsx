@@ -2,12 +2,16 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 
 import { useAuthContext } from '@/app/context/AuthContext';
 
 export default function Navbar() {
   const { user, logout } = useAuthContext();
+  const pathname = usePathname();
+
+  const isActive = (path: string) => pathname?.startsWith(path);
 
   return (
     <nav className="w-full sticky top-0 z-50 bg-white/40 dark:bg-black/40 backdrop-blur-md border-b border-white/10 dark:border-white/5 transition-all-fast">
@@ -24,16 +28,32 @@ export default function Navbar() {
 
         {/* Center: Navigation */}
         <div className="hidden md:flex items-center gap-6 lg:gap-8">
-          <Link href="/subjects" className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] font-medium transition-colors text-sm lg:text-base">
+          <Link
+            href="/subjects"
+            className={`text-sm lg:text-base font-medium transition-colors ${isActive('/subjects') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
+              }`}
+          >
             Subjects
           </Link>
-          <Link href="/experts" className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] font-medium transition-colors text-sm lg:text-base">
+          <Link
+            href="/experts"
+            className={`text-sm lg:text-base font-medium transition-colors ${isActive('/experts') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
+              }`}
+          >
             Experts
           </Link>
-          <Link href="/about" className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] font-medium transition-colors text-sm lg:text-base">
+          <Link
+            href="/about"
+            className={`text-sm lg:text-base font-medium transition-colors ${isActive('/about') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
+              }`}
+          >
             About
           </Link>
-          <Link href="/pricing" className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] font-medium transition-colors text-sm lg:text-base">
+          <Link
+            href="/pricing"
+            className={`text-sm lg:text-base font-medium transition-colors ${isActive('/pricing') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
+              }`}
+          >
             Pricing
           </Link>
 
@@ -41,7 +61,10 @@ export default function Navbar() {
           {user && (
             <Link
               href={user.role === 'student' ? '/students/dashboard' : '/parent/dashboard'}
-              className="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] font-medium transition-colors text-sm lg:text-base"
+              className={`text-sm lg:text-base font-medium transition-colors ${isActive('/parent/dashboard') || isActive('/students/dashboard')
+                  ? 'text-[var(--color-primary)]'
+                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
+                }`}
             >
               Dashboard
             </Link>
@@ -51,9 +74,9 @@ export default function Navbar() {
         {/* Right: Auth & Toggle */}
         <div className="flex items-center gap-4">
           <Link
-            href={user ? 'https://calendly.com/swarupshekhar-vaidikedu/30min' : '/signup?intent=assessment'}
+            href={user ? 'https://calendly.com/swarupshekhar-vaidikedu/30min' : '/signup?type=assessment'}
             className="hidden lg:block px-5 py-2 rounded-full bg-[var(--color-primary)] text-white font-bold text-sm hover:opacity-90 hover:scale-105 transition-all shadow-lg shadow-blue-500/20"
-            {...(user ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+            {...(user ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
           >
             Book Free Demo Session
           </Link>
