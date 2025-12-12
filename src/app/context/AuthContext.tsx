@@ -101,6 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push('/student/dashboard'); // Fixed path
           } else if (userData?.role === 'tutor') {
             router.push('/tutor/dashboard');
+          } else if (userData?.role === 'admin') {
+            router.push('/admin/dashboard');
           } else {
             router.push('/parent/dashboard');
           }

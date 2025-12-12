@@ -4,9 +4,27 @@ import React from 'react';
 import ProtectedClient from '@/app/components/ProtectedClient';
 import { useAuthContext } from '@/app/context/AuthContext';
 import Link from 'next/link';
+import api from '@/app/lib/api';
 
 export default function AdminDashboardPage() {
     const { user } = useAuthContext();
+    const [stats, setStats] = React.useState({ students: 0, parents: 0, upcomingSessions: 0 });
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        // Fetch stats
+        (async () => {
+            try {
+                // Endpoint to be implemented by backend
+                const res = await api.get('/admin/stats');
+                setStats(res.data || { students: 0, parents: 0, upcomingSessions: 0 });
+            } catch (e) {
+                console.warn('Failed to fetch admin stats', e);
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, []);
 
     return (
         <ProtectedClient roles={['admin']}>
@@ -17,32 +35,53 @@ export default function AdminDashboardPage() {
                             Admin Dashboard
                         </h1>
                         <p className="text-[var(--color-text-secondary)] text-lg mb-6">
-                            Welcome back, {user?.first_name || 'Admin'}.
+                            Welcome back, {user?.first_name || 'Admin'}. Here is your operation center.
                         </p>
                     </div>
                 </section>
 
+                {/* ANALYTICS CARDS */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-glass rounded-2xl p-6 border border-white/20 shadow-sm flex items-center gap-4">
+                        <div className="p-3 bg-blue-100 rounded-lg text-2xl">👨‍🎓</div>
+                        <div>
+                            <p className="text-sm font-bold text-[var(--color-text-secondary)] uppercase">Total Students</p>
+                            <p className="text-2xl font-bold text-[var(--color-primary)]">{loading ? '...' : stats.students}</p>
+                        </div>
+                    </div>
+                    <div className="bg-glass rounded-2xl p-6 border border-white/20 shadow-sm flex items-center gap-4">
+                        <div className="p-3 bg-green-100 rounded-lg text-2xl">👨‍👩‍👧</div>
+                        <div>
+                            <p className="text-sm font-bold text-[var(--color-text-secondary)] uppercase">Total Parents</p>
+                            <p className="text-2xl font-bold text-[var(--color-primary)]">{loading ? '...' : stats.parents}</p>
+                        </div>
+                    </div>
+                    <div className="bg-glass rounded-2xl p-6 border border-white/20 shadow-sm flex items-center gap-4">
+                        <div className="p-3 bg-purple-100 rounded-lg text-2xl">🗓️</div>
+                        <div>
+                            <p className="text-sm font-bold text-[var(--color-text-secondary)] uppercase">Upcoming Sessions</p>
+                            <p className="text-2xl font-bold text-[var(--color-primary)]">{loading ? '...' : stats.upcomingSessions}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Tutor Management Card */}
                     <div className="bg-glass rounded-2xl p-6 border border-white/20 shadow-sm hover:shadow-md transition-shadow">
-                        <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">Tutors</h2>
+                        <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">Tutor Management</h2>
                         <p className="text-sm text-[var(--color-text-secondary)] mb-6">
                             Onboard new tutors and manage existing accounts.
                         </p>
-                        <Link href="/admin/tutors/new" className="block w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-center rounded-lg transition-colors">
+                        <Link href="/admin/tutors/new" className="block w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-center rounded-lg transition-colors shadow-lg">
                             + Add New Tutor
                         </Link>
                     </div>
 
-                    {/* Placeholders for other admin features */}
-                    <div className="bg-glass rounded-2xl p-6 border border-white/20 shadow-sm opacity-50">
-                        <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">Students</h2>
-                        <p className="text-sm text-[var(--color-text-secondary)] mb-6">
-                            Manage student accounts (Coming Soon).
-                        </p>
-                        <button disabled className="block w-full py-2 bg-gray-300 dark:bg-gray-700 text-gray-500 font-bold text-center rounded-lg cursor-not-allowed">
-                            Manage
-                        </button>
+                    {/* Quick Actions / Future Expansion */}
+                    <div className="bg-glass rounded-2xl p-6 border border-white/20 shadow-sm opacity-60">
+                        <h2 className="text-xl font-bold text-[var(--color-text-primary)] mb-4">System Health</h2>
+                        <p className="text-sm text-[var(--color-text-secondary)] mb-2">Backups: <span className="text-green-600 font-bold">Active</span></p>
+                        <p className="text-sm text-[var(--color-text-secondary)]">Monitoring: <span className="text-green-600 font-bold">Online</span></p>
                     </div>
                 </div>
             </div>
