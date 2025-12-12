@@ -93,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // 3. Redirect immediately based on role
         console.log('[Auth] Login successful. User:', userData);
+        setLoading(false); // <--- CRITICAL FIX: Ensure loading is disabled before/during navigation
 
         if (shouldRedirect) {
           if (userData?.role === 'parent') {
@@ -106,8 +107,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else {
             router.push('/parent/dashboard');
           }
-        } else {
-          setLoading(false); // Stop loading if not redirecting
         }
       } else {
         // No token? unexpected
