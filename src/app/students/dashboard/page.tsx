@@ -65,6 +65,11 @@ export default function StudentDashboardPage() {
                     </h2>
                     <p className="text-blue-100 mb-4 text-sm">
                       {formatDate(nextSession.start_time)}
+                      {nextSession.tutor?.first_name && (
+                        <span className="block mt-1 text-white font-medium">
+                          Tutor: {nextSession.tutor.first_name} {nextSession.tutor.last_name || ''}
+                        </span>
+                      )}
                     </p>
 
                     <div className="flex gap-3">

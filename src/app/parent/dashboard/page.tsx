@@ -134,6 +134,11 @@ export default function ParentDashboardPage() {
                     </h3>
                     <p className="text-sm text-[var(--color-text-secondary)] mb-1">
                       with {session.child_name || 'Child'}
+                      {session.tutor_name && (
+                        <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                          Tutor: {session.tutor_name}
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-[var(--color-text-secondary)] opacity-80">
                       {session.start_time ? new Date(session.start_time).toLocaleString() : 'Date TBD'}

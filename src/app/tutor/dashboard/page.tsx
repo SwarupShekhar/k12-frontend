@@ -15,32 +15,44 @@ export default function TutorDashboardPage() {
       <div className="min-h-screen p-6 md:p-8 space-y-8 max-w-7xl mx-auto">
 
         {/* AVAILABLE JOBS ALERT */}
-        {availableJobs.length > 0 && (
-          <section className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-[2rem] p-6 border border-orange-300 shadow-lg animate-pulse-slow">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                🚨 {availableJobs.length} New Session{availableJobs.length > 1 ? 's' : ''} Available!
-              </h2>
-              <span className="text-sm text-orange-100">First come, first served</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {availableJobs.slice(0, 6).map((job: any) => (
-                <div key={job.id} className="bg-white/90 rounded-xl p-4 shadow-md">
-                  <h3 className="font-bold text-gray-800 mb-1">{job.subject_name || job.subject?.name || 'Subject TBD'}</h3>
-                  <p className="text-sm text-gray-600 mb-2">
-                    {job.requested_start ? new Date(job.requested_start).toLocaleString() : 'Time TBD'}
-                  </p>
-                  <Link
-                    href={`/tutor/claim-session/${job.id}`}
-                    className="block w-full py-2 bg-green-500 hover:bg-green-600 text-white font-bold text-center rounded-lg transition-colors text-sm"
-                  >
-                    Accept Job →
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {availableJobs.length > 0 && (() => {
+          // Filter to only show FUTURE sessions (not expired)
+          const now = new Date();
+          const futureJobs = availableJobs.filter((job: any) => {
+            const startTime = job.requested_start || job.start_time;
+            if (!startTime) return true; // If no time, still show it
+            return new Date(startTime) > now;
+          });
+
+          if (futureJobs.length === 0) return null;
+
+          return (
+            <section className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-[2rem] p-6 border border-orange-300 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  🚨 {futureJobs.length} New Session{futureJobs.length > 1 ? 's' : ''} Available!
+                </h2>
+                <span className="text-sm text-orange-100">First come, first served</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {futureJobs.slice(0, 6).map((job: any) => (
+                  <div key={job.id} className="bg-white/90 rounded-xl p-4 shadow-md">
+                    <h3 className="font-bold text-gray-800 mb-1">{job.subject_name || job.subject?.name || 'Subject TBD'}</h3>
+                    <p className="text-sm text-gray-600 mb-2">
+                      {job.requested_start ? new Date(job.requested_start).toLocaleString() : 'Time TBD'}
+                    </p>
+                    <Link
+                      href={`/tutor/claim-session/${job.id}`}
+                      className="block w-full py-2 bg-green-500 hover:bg-green-600 text-white font-bold text-center rounded-lg transition-colors text-sm"
+                    >
+                      Accept Job →
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
 
         {/* HERO SECTION */}
         <section className="bg-glass rounded-[2rem] p-8 md:p-10 border border-white/20 shadow-lg relative overflow-hidden">
