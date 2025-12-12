@@ -24,10 +24,10 @@ export default function NewTutorPage() {
         e.preventDefault();
         setLoading(true);
         try {
-            // NOTE: Reverting to /auth/signup per user request (Backend says it is implemented)
-            const res = await api.post('/auth/signup', {
+            // NOTE: Using dedicated admin endpoint to bypass public signup restrictions
+            const res = await api.post('/admin/tutors', {
                 ...formData,
-                role: 'tutor'
+                // role: 'tutor' // Role inferred by endpoint
             });
             alert('Tutor created successfully!');
             router.push('/admin/dashboard'); // Assuming exists, or back to home

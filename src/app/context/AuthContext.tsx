@@ -99,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userData?.role === 'parent') {
             router.push('/parent/dashboard');
           } else if (userData?.role === 'student') {
-            router.push('/student/dashboard'); // Fixed path
+            router.push('/students/dashboard'); // Fixed path (plural)
           } else if (userData?.role === 'tutor') {
             router.push('/tutor/dashboard');
           } else if (userData?.role === 'admin') {
