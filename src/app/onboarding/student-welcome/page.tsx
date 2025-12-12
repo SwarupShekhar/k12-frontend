@@ -35,7 +35,7 @@ export default function StudentWelcomePage() {
 
                         <div className="space-y-4">
                             <Link
-                                href="/student/dashboard"
+                                href="/students/dashboard"
                                 className="inline-flex items-center justify-center w-full md:w-auto px-10 py-4 text-lg font-bold text-white bg-emerald-600 rounded-full hover:bg-emerald-500 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"
                             >
                                 Go to My Dashboard →

@@ -21,7 +21,7 @@ export default function SignupPage() {
   useEffect(() => {
     if (!loading && user) {
       if (user.role === 'student') {
-        router.push('/student/dashboard');
+        router.push('/students/dashboard');
       } else if (user.role === 'tutor') {
         router.push('/tutor/dashboard');
       } else {

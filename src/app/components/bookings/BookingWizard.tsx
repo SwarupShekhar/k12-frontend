@@ -60,9 +60,16 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
 
     useEffect(() => {
         if (!loadingCatalog) {
-            // Default select none for subjects
-            if (!curriculumId && curricula?.length) setCurriculumId(curricula[0].id);
-            if (!packageId && packages?.length) setPackageId(packages[0].id);
+            // Default select none for subjects (safe)
+
+            // Only set curriculum if not already set and array exists
+            if (!curriculumId && curricula && curricula.length > 0) {
+                setCurriculumId(curricula[0].id);
+            }
+            // Only set package if not already set and array exists
+            if (!packageId && packages && packages.length > 0) {
+                setPackageId(packages[0].id);
+            }
         }
     }, [loadingCatalog, curricula, packages, curriculumId, packageId]);
 
@@ -107,8 +114,21 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
     const { user } = useAuthContext();
 
     async function submitBooking() {
-        if (!studentId || subjectIds.length === 0 || !curriculumId || !packageId || !start || !end) {
-            setError('Please complete all required fields. Select at least one subject.');
+        // Validation with specific error
+        if (!studentId) {
+            setError('Please select a student.');
+            return;
+        }
+        if (subjectIds.length === 0) {
+            setError('Please select at least one subject.');
+            return;
+        }
+        if (!curriculumId || !packageId) {
+            setError('Please select a curriculum and package.');
+            return;
+        }
+        if (!start || !end) {
+            setError('Please select a start and end time.');
             return;
         }
 
@@ -132,18 +152,28 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
                 note,
             };
 
+            console.log('Submitting booking payload:', payload); // DEBUG LOG
+
             const res = await api.post('/bookings/create', payload);
+            console.log('Booking created response:', res.data); // DEBUG LOG
             const newBooking = res.data;
 
-            // Redirect based on role
-            if (user?.role === 'student') {
+            // Redirect to booking detail if exists else dashboard
+            if (newBooking?.id) {
+                router.push(`/bookings/${newBooking.id}`);
+            } else if (user?.role === 'student') {
                 router.push('/students/dashboard');
             } else {
                 router.push('/parent/dashboard');
             }
         } catch (err: any) {
             console.error('Booking create error', err);
-            setError(err?.response?.data?.message || 'Something went wrong while creating the booking.');
+            console.error('Booking create error response', err?.response?.data); // DEBUG LOG
+            setError(
+                err?.response?.data?.message ||
+                err?.message ||
+                'Something went wrong while creating the booking.'
+            );
         } finally {
             setSubmitting(false);
         }
@@ -354,7 +384,7 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
                     >
                         {packages?.map((p: any) => (
                             <option key={p.id} value={p.id}>
-                                {p.name} — {(p.price_cents / 100).toFixed(2)} {p.currency ?? 'USD'}
+                                {p.name} {p.price_cents > 0 && p.id !== 'starter' ? `— ${(p.price_cents / 100).toFixed(2)} ${p.currency ?? 'USD'}` : ''}
                             </option>
                         ))}
                     </select>
