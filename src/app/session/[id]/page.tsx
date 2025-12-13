@@ -208,14 +208,7 @@ export default function SessionPage({ params }: SessionProps) {
                     {/* LEFT: VIDEO */}
                     <div className="w-[450px] flex-shrink-0 flex flex-col gap-4">
                         <div className="flex-1 rounded-2xl overflow-hidden relative bg-black shadow-xl border border-gray-800 ring-1 ring-white/10">
-                            {/* Loading State */}
-                            {jitsiLoading && (
-                                <div className="absolute inset-0 bg-gray-900 z-20 flex flex-col items-center justify-center text-center p-6">
-                                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4" />
-                                    <h3 className="text-white font-bold text-lg mb-1">Connecting...</h3>
-                                    <p className="text-gray-400 text-sm">Please allow camera and microphone access when prompted.</p>
-                                </div>
-                            )}
+                            {/* Removed blocking overlay so user can see Jitsi errors/prompts */}
                             <div ref={jitsiRef} className="w-full h-full" />
                         </div>
 
@@ -240,7 +233,7 @@ export default function SessionPage({ params }: SessionProps) {
                                     appState: {
                                         viewBackgroundColor: '#ffffff',
                                         currentItemFontFamily: 1,
-                                        showWelcomeScreen: false  // Fixes "Big Lock" artifact
+                                        showWelcomeScreen: false
                                     },
                                     scrollToContent: true
                                 }}
@@ -249,7 +242,8 @@ export default function SessionPage({ params }: SessionProps) {
                                         loadScene: false,
                                         saveToActiveFile: false,
                                         export: { saveFileToDisk: true },
-                                        saveAsImage: true
+                                        saveAsImage: true,
+                                        toggleTheme: false
                                     }
                                 }}
                             />
