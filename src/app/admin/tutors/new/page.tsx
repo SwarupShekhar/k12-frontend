@@ -4,10 +4,11 @@ import React, { useState } from 'react';
 import ProtectedClient from '@/app/components/ProtectedClient';
 import api from '@/app/lib/api';
 import { useRouter } from 'next/navigation';
-import { SUBJECT_LIST } from '@/app/lib/constants';
+import useCatalog from '@/app/Hooks/useCatalog';
 
 export default function NewTutorPage() {
     const router = useRouter();
+    const { subjects, loading: loadingSubjects } = useCatalog();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         first_name: '',
@@ -82,7 +83,7 @@ export default function NewTutorPage() {
                         <div>
                             <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">Subjects</label>
                             <div className="grid grid-cols-2 gap-2">
-                                {SUBJECT_LIST.map((subject) => (
+                                {subjects?.map((subject: any) => (
                                     <label key={subject.id} className="flex items-center space-x-2 p-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
                                         <input
                                             type="checkbox"

@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import api from '@/app/lib/api';
-import { SUBJECT_LIST } from '@/app/lib/constants';
+import useCatalog from '@/app/Hooks/useCatalog';
 
 interface TutorAllocationModalProps {
     isOpen: boolean;
@@ -9,6 +9,7 @@ interface TutorAllocationModalProps {
 }
 
 export default function TutorAllocationModal({ isOpen, onClose }: TutorAllocationModalProps) {
+    const { subjects, loading: loadingSubjects } = useCatalog();
     const [loading, setLoading] = useState(false);
     const [students, setStudents] = useState<any[]>([]);
     const [tutors, setTutors] = useState<any[]>([]);
@@ -91,7 +92,7 @@ export default function TutorAllocationModal({ isOpen, onClose }: TutorAllocatio
                             className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-black/20"
                         >
                             <option value="">Select Subject</option>
-                            {SUBJECT_LIST.map(s => (
+                            {subjects?.map((s: any) => (
                                 <option key={s.id} value={s.id}>{s.name}</option>
                             ))}
                         </select>
