@@ -294,7 +294,103 @@ export class SendMessageDto {
 
 ---
 
-## 3. Register Module
+## 3. Real-time Chat (WebSockets) [RECOMMENDED]
+
+For a better user experience (instant messages without refreshing), implement a WebSocket Gateway.
+
+### Install Dependencies
+```bash
+npm install @nestjs/websockets @nestjs/platform-socket.io socket.io
+```
+
+### `src/sessions/sessions.gateway.ts`
+
+```typescript
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  MessageBody,
+  ConnectedSocket,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+} from '@nestjs/websockets';
+import { Server, Socket } from 'socket.io';
+import { SessionsService } from './sessions.service';
+import { UseGuards } from '@nestjs/common';
+import { WsJwtGuard } from '../auth/ws-jwt.guard'; // Assume you have a WS JWT Guard
+
+@WebSocketGateway({
+  cors: {
+    origin: '*', // Configure this for your frontend URL
+  },
+  namespace: 'encounters',
+})
+export class SessionsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer()
+  server: Server;
+
+  constructor(private sessionsService: SessionsService) {}
+
+  handleConnection(client: Socket) {
+    // console.log('Client connected:', client.id);
+  }
+
+  handleDisconnect(client: Socket) {
+    // console.log('Client disconnected:', client.id);
+  }
+
+  @SubscribeMessage('joinSession')
+  handleJoinSession(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string },
+  ) {
+    client.join(`session-${data.sessionId}`);
+    // console.log(`Client ${client.id} joined session-${data.sessionId}`);
+  }
+
+  @SubscribeMessage('leaveSession')
+  handleLeaveSession(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string },
+  ) {
+    client.leave(`session-${data.sessionId}`);
+  }
+
+  // Call this from SessionService.sendMessage usually, but here is a direct handler example
+  // OR just listen to database changes/events if decoupled.
+  // For simplicity, we'll let the Controller handle logic and just emit events?
+  // BETTER PATTERN: Controller -> Service -> Gateway.emit()
+}
+```
+
+### Update `SessionsService` to emit events
+
+Add `SessionsGateway` to `SessionsModule` providers and inject it into `SessionsService` to emit events when a message is created.
+
+```typescript
+// sessions.service.ts
+// ...
+import { SessionsGateway } from './sessions.gateway';
+
+@Injectable()
+export class SessionsService {
+  constructor(
+    private prisma: PrismaService,
+    // Use forwardRef or @Inject if circular dependency issues arise, 
+    // but usually Gateway depends on Service. 
+    // If Service needs to emit, better to use EventEmitter or a shared Subject.
+  ) {}
+  
+  // ... sendMessage logic ...
+  // After saving to DB:
+  // this.server.to(`session-${sessionId}`).emit('newMessage', messageDto);
+}
+```
+
+---
+
+## 4. Register Module
 
 Update `src/app.module.ts`:
 

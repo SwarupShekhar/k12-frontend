@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/app/context/AuthContext';
+import SessionChat from '@/app/components/SessionChat';
 
 interface SessionProps {
     params: Promise<{ id: string }>;
@@ -255,6 +256,7 @@ export default function SessionPage({ params }: SessionProps) {
                         )}
                     </div>
                 </div>
+                <SessionChat />
             </div>
         </div>
     );
