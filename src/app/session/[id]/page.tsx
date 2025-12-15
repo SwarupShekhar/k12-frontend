@@ -119,6 +119,16 @@ export default function SessionPage({ params }: SessionProps) {
         };
     }, [excalidrawAPI, sessionId]);
 
+    // Use refs for stable access inside effect without triggering re-runs
+    const userRef = useRef(user);
+    const bookingRef = useRef(booking);
+
+    // Update refs when data changes
+    useEffect(() => {
+        userRef.current = user;
+        bookingRef.current = booking;
+    }, [user, booking]);
+
     // Initialize Jitsi ONLY after user clicks "Join"
     useEffect(() => {
         // Only init if user has joined and libs are ready
@@ -131,49 +141,37 @@ export default function SessionPage({ params }: SessionProps) {
         }
 
         const domain = 'meet.jit.si';
-        const displayName = user?.first_name
-            ? `${user.first_name} ${user.last_name || ''}`.trim()
+        const currentUser = userRef.current;
+        const currentBooking = bookingRef.current;
+
+        const displayName = currentUser?.first_name
+            ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim()
             : 'Guest';
 
-        const isTutor = user?.role === 'tutor'; // Determine role
+        const isTutor = currentUser?.role === 'tutor'; // Determine role
 
         const options = {
-            roomName: `K12Session${sessionId.replace(/-/g, '').slice(0, 16)}`,
+            // Append config to roomName as a robust fallback (Magic Hash)
+            roomName: `K12Session${sessionId.replace(/-/g, '').slice(0, 16)}#config.prejoinPageEnabled=false&userInfo.displayName="${encodeURIComponent(displayName)}"`,
             width: '100%',
             height: '100%',
             parentNode: jitsiRef.current,
             userInfo: {
                 displayName: displayName,
-                email: user?.email,
-                role: isTutor ? 'moderator' : 'participant' // Set Role
+                email: currentUser?.email,
+                role: isTutor ? 'moderator' : 'participant'
             },
             configOverwrite: {
-                prejoinPageEnabled: false,       // DISABLE PREJOIN for direct entry
+                prejoinPageEnabled: false,
                 startWithAudioMuted: false,
-                startWithVideoMuted: false,
-                disableDeepLinking: true,
-                enableWelcomePage: false,
-                enableClosePage: false,
-                disableInviteFunctions: true,
-                hideConferenceSubject: true,
-                hideConferenceTimer: false,
-                subject: booking?.subject?.name || 'Tutoring Session',
-                enableLobbyChat: true,          // Enable Lobby
-                hideLobbyButton: true,
-                requireDisplayName: false,
+                startWithVideoMuted: false
             },
             interfaceConfigOverwrite: {
-                SHOW_JITSI_WATERMARK: false,
-                SHOW_WATERMARK_FOR_GUESTS: false,
-                SHOW_BRAND_WATERMARK: false,
-                BRAND_WATERMARK_LINK: '',
-                SHOW_POWERED_BY: false,
-                HIDE_INVITE_MORE_HEADER: true,
+                // Minimal interface config
                 TOOLBAR_BUTTONS: [
                     'microphone', 'camera', 'desktop', 'fullscreen',
                     'raisehand', 'tileview', 'hangup', 'chat'
                 ],
-                VIDEO_QUALITY_LABEL_DISABLED: true,
             },
         };
 
@@ -187,18 +185,27 @@ export default function SessionPage({ params }: SessionProps) {
         });
 
         // Handle hangup event
-        apiObj.addEventListener('videoConferenceLeft', () => {
-            router.push('/students/dashboard');
-        });
+        const handleLeft = () => {
+            console.log('[Jitsi] Conference left - Stay on page for debugging');
+            // TEMPORARILY DISABLED REDIRECT to debug loop
+            // const role = userRef.current?.role;
+            // if (role === 'tutor') router.push('/tutor/dashboard');
+            // else if (role === 'parent') router.push('/parent/dashboard');
+            // else router.push('/students/dashboard');
+        };
 
-        apiObj.addEventListener('readyToClose', () => {
-            router.push('/students/dashboard');
-        });
+        apiObj.addEventListener('videoConferenceLeft', handleLeft);
+        apiObj.addEventListener('readyToClose', handleLeft);
 
         return () => {
-            try { apiObj.dispose(); } catch (e) { }
+            // Remove listeners to prevent memory leaks and unwanted triggers during unmount
+            try {
+                apiObj.removeEventListener('videoConferenceLeft', handleLeft);
+                apiObj.removeEventListener('readyToClose', handleLeft);
+                apiObj.dispose();
+            } catch (e) { }
         };
-    }, [hasJoined, meetReady, sessionId, user, router, booking]);
+    }, [hasJoined, meetReady, sessionId]);
 
     // Show loading while auth is initializing
     if (authLoading) {
@@ -282,7 +289,11 @@ export default function SessionPage({ params }: SessionProps) {
                     </button>
 
                     <button
-                        onClick={() => router.push('/students/dashboard')}
+                        onClick={() => {
+                            if (user?.role === 'tutor') router.push('/tutor/dashboard');
+                            else if (user?.role === 'parent') router.push('/parent/dashboard');
+                            else router.push('/students/dashboard');
+                        }}
                         className="px-4 py-2 rounded-xl bg-red-50 text-red-600 text-sm font-bold border border-red-100 hover:bg-red-100 transition-all flex items-center gap-2"
                     >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
