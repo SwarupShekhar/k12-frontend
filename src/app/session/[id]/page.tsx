@@ -112,7 +112,7 @@ export default function SessionPage({ params }: SessionProps) {
                 role: isTutor ? 'moderator' : 'participant' // Set Role
             },
             configOverwrite: {
-                prejoinPageEnabled: true,       // ENABLE PREJOIN for consistent experience
+                prejoinPageEnabled: false,       // DISABLE PREJOIN for direct entry
                 startWithAudioMuted: false,
                 startWithVideoMuted: false,
                 disableDeepLinking: true,
@@ -148,6 +148,11 @@ export default function SessionPage({ params }: SessionProps) {
         apiObj.addEventListener('videoConferenceJoined', (ev: any) => {
             console.log('[Jitsi] Joined conference:', ev);
             setJitsiLoading(false);
+        });
+
+        // Handle hangup event
+        apiObj.addEventListener('videoConferenceLeft', () => {
+            router.push('/students/dashboard');
         });
 
         apiObj.addEventListener('readyToClose', () => {
