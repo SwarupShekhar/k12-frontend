@@ -29,20 +29,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter(); // Use router for redirects
 
-  // init: read token from localStorage
+  // init: read token and user from localStorage
   useEffect(() => {
     try {
       const t = localStorage.getItem('K12_TOKEN');
+      const savedUser = localStorage.getItem('K12_USER');
+
       if (t) {
         setToken(t);
-        const payload: any = decodeToken(t);
-        if (payload) {
-          setUser({
-            id: payload.sub ?? payload.id,
-            email: payload.email,
-            role: payload.role,
-            ...payload,
-          });
+        // Prefer saved rich user object if available
+        if (savedUser) {
+          try {
+            setUser(JSON.parse(savedUser));
+          } catch (e) {
+            // Fallback to token decoding if parsing fails
+            const payload: any = decodeToken(t);
+            if (payload) {
+              setUser({
+                id: payload.sub ?? payload.id,
+                email: payload.email,
+                role: payload.role,
+                ...payload,
+              });
+            }
+          }
+        } else {
+          // Fallback to token if no saved user
+          const payload: any = decodeToken(t);
+          if (payload) {
+            setUser({
+              id: payload.sub ?? payload.id,
+              email: payload.email,
+              role: payload.role,
+              ...payload,
+            });
+          }
         }
       }
     } catch (e) {
@@ -59,8 +80,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const t = e.newValue;
         setToken(t);
         if (t) {
-          const payload: any = decodeToken(t);
-          setUser(payload ? { id: payload.sub ?? payload.id, email: payload.email, role: payload.role, ...payload } : null);
+          const savedUser = localStorage.getItem('K12_USER');
+          if (savedUser) {
+            setUser(JSON.parse(savedUser));
+          } else {
+            const payload: any = decodeToken(t);
+            setUser(payload ? { id: payload.sub ?? payload.id, email: payload.email, role: payload.role, ...payload } : null);
+          }
         } else {
           setUser(null);
         }
@@ -80,29 +106,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('K12_TOKEN', data.token);
         setToken(data.token);
 
-        // 2. Decode and store user
-        const payload: any = decodeToken(data.token);
-        const userData = payload ? {
-          id: payload.sub ?? payload.id,
-          email: payload.email,
-          role: payload.role,
-          ...payload
-        } : null;
+        // 2. Decode and store user (Prefer data.user from response if available)
+        let userData: User | null = null;
 
-        setUser(userData);
+        if (data.user) {
+          userData = data.user;
+          // Ensure ID is set if mixed formats
+          if (!userData.id && userData._id) userData.id = userData._id;
+        } else {
+          const payload: any = decodeToken(data.token);
+          userData = payload ? {
+            id: payload.sub ?? payload.id,
+            email: payload.email,
+            role: payload.role,
+            ...payload
+          } : null;
+        }
+
+        if (userData) {
+          localStorage.setItem('K12_USER', JSON.stringify(userData));
+          setUser(userData);
+          console.log('[Auth] Login successful. User:', userData);
+        }
 
         // 3. Redirect immediately based on role
-        console.log('[Auth] Login successful. User:', userData);
         setLoading(false); // <--- CRITICAL FIX: Ensure loading is disabled before/during navigation
 
-        if (shouldRedirect) {
-          if (userData?.role === 'parent') {
+        if (shouldRedirect && userData) {
+          if (userData.role === 'parent') {
             router.push('/parent/dashboard');
-          } else if (userData?.role === 'student') {
-            router.push('/students/dashboard'); // Fixed path (plural)
-          } else if (userData?.role === 'tutor') {
+          } else if (userData.role === 'student') {
+            router.push('/students/dashboard');
+          } else if (userData.role === 'tutor') {
             router.push('/tutor/dashboard');
-          } else if (userData?.role === 'admin') {
+          } else if (userData.role === 'admin') {
             router.push('/admin/dashboard');
           } else {
             router.push('/parent/dashboard');
@@ -135,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function logout() {
     authLib.logout();
     localStorage.removeItem('K12_TOKEN'); // Ensure token is removed from storage
+    localStorage.removeItem('K12_USER'); // Remove saved user data
     setToken(null);
     setUser(null);
     router.push('/login'); // Optional: Redirect to login on logout
