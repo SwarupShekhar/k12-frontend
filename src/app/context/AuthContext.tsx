@@ -33,37 +33,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const t = localStorage.getItem('K12_TOKEN');
-      const savedUser = localStorage.getItem('K12_USER');
+      const savedUserStr = localStorage.getItem('K12_USER');
 
       if (t) {
         setToken(t);
-        // Prefer saved rich user object if available
-        if (savedUser) {
+        let restoredUser = null;
+
+        // 1. Try to restore full user object first (has names)
+        if (savedUserStr) {
           try {
-            setUser(JSON.parse(savedUser));
+            restoredUser = JSON.parse(savedUserStr);
+            // Basic validation
+            if (restoredUser && !restoredUser.email) restoredUser = null;
           } catch (e) {
-            // Fallback to token decoding if parsing fails
-            const payload: any = decodeToken(t);
-            if (payload) {
-              setUser({
-                id: payload.sub ?? payload.id,
-                email: payload.email,
-                role: payload.role,
-                ...payload,
-              });
-            }
+            console.error('Failed to parse saved user', e);
           }
-        } else {
-          // Fallback to token if no saved user
+        }
+
+        // 2. Fallback to token (has only basic info)
+        if (!restoredUser) {
           const payload: any = decodeToken(t);
           if (payload) {
-            setUser({
+            restoredUser = {
               id: payload.sub ?? payload.id,
               email: payload.email,
               role: payload.role,
               ...payload,
-            });
+            };
           }
+        }
+
+        if (restoredUser) {
+          console.log('[Auth] Restored user:', restoredUser);
+          setUser(restoredUser);
         }
       }
     } catch (e) {
@@ -82,7 +84,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (t) {
           const savedUser = localStorage.getItem('K12_USER');
           if (savedUser) {
-            setUser(JSON.parse(savedUser));
+            try {
+              setUser(JSON.parse(savedUser));
+            } catch {
+              const payload: any = decodeToken(t);
+              setUser(payload ? { id: payload.sub ?? payload.id, email: payload.email, role: payload.role, ...payload } : null);
+            }
           } else {
             const payload: any = decodeToken(t);
             setUser(payload ? { id: payload.sub ?? payload.id, email: payload.email, role: payload.role, ...payload } : null);
