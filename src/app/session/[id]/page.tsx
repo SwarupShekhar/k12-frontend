@@ -4,6 +4,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/app/context/AuthContext';
 import SessionChat from '@/app/components/SessionChat';
+import api from '@/app/lib/api';
+
+interface BookingDetails {
+    id: string;
+    start_time: string;
+    subject: { name: string; icon?: string };
+    tutor: { first_name: string; last_name: string };
+    student: { first_name: string; last_name: string };
+}
 
 interface SessionProps {
     params: Promise<{ id: string }>;
@@ -17,7 +26,18 @@ export default function SessionPage({ params }: SessionProps) {
     const [hasJoined, setHasJoined] = useState(false); // New state for Join Overlay
     const [meetReady, setMeetReady] = useState(false);
     const [jitsiLoading, setJitsiLoading] = useState(true);
+    const [isWhiteboardMode, setIsWhiteboardMode] = useState(false); // New Layout Toggle
+    const [booking, setBooking] = useState<BookingDetails | null>(null);
     const router = useRouter();
+
+    // Fetch Booking Details
+    useEffect(() => {
+        if (sessionId) {
+            api.get(\`/bookings/\${sessionId}\`)
+                .then(res => setBooking(res.data))
+                .catch(err => console.error("Failed to load session details", err));
+        }
+    }, [sessionId]);
 
     // Excalidraw API & Collab
     const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
@@ -48,7 +68,7 @@ export default function SessionPage({ params }: SessionProps) {
             const Y = await import('yjs');
             const { WebsocketProvider } = await import('y-websocket');
             const ydoc = new Y.Doc();
-            const provider = new WebsocketProvider('ws://localhost:1234', `k12-session-${sessionId}`, ydoc);
+            const provider = new WebsocketProvider('ws://localhost:1234', `k12 - session - ${ sessionId }`, ydoc);
 
             // Clean slate for whiteboard
             // const ymap = ydoc.getMap('excalidraw-state');
@@ -76,30 +96,33 @@ export default function SessionPage({ params }: SessionProps) {
 
         const domain = 'meet.jit.si';
         const displayName = user?.first_name
-            ? `${user.first_name} ${user.last_name || ''}`.trim()
+            ? `${ user.first_name } ${ user.last_name || '' }`.trim()
             : 'Guest';
 
+        const isTutor = user?.role === 'tutor'; // Determine role
+
         const options = {
-            roomName: `K12Session${sessionId.replace(/-/g, '').slice(0, 16)}`,
+            roomName: `K12Session${ sessionId.replace(/-/g, '').slice(0, 16) }`,
             width: '100%',
             height: '100%',
             parentNode: jitsiRef.current,
             userInfo: {
                 displayName: displayName,
                 email: user?.email,
+                role: isTutor ? 'moderator' : 'participant' // Set Role
             },
             configOverwrite: {
-                prejoinPageEnabled: false,       // SKIP LOBBY
-                startWithAudioMuted: false,      // User already clicked "Join", so we can start UNMUTED
-                startWithVideoMuted: false,      // User already clicked "Join", so we can start UNMUTED
+                prejoinPageEnabled: true,       // ENABLE PREJOIN for consistent experience
+                startWithAudioMuted: false,     
+                startWithVideoMuted: false,     
                 disableDeepLinking: true,
                 enableWelcomePage: false,
                 enableClosePage: false,
                 disableInviteFunctions: true,
                 hideConferenceSubject: true,
                 hideConferenceTimer: false,
-                subject: 'Tutoring Session',
-                enableLobbyChat: false,
+                subject: booking?.subject?.name || 'Tutoring Session',
+                enableLobbyChat: true,          // Enable Lobby
                 hideLobbyButton: true,
                 requireDisplayName: false,
             },
@@ -134,7 +157,7 @@ export default function SessionPage({ params }: SessionProps) {
         return () => {
             try { apiObj.dispose(); } catch (e) { }
         };
-    }, [hasJoined, meetReady, sessionId, user, router]);
+    }, [hasJoined, meetReady, sessionId, user, router, booking]);
 
     // Render JOIN OVERLAY if not joined
     if (!hasJoined) {
@@ -148,10 +171,17 @@ export default function SessionPage({ params }: SessionProps) {
                     </div>
 
                     <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">
-                        Ready for Class?
+                        {booking?.subject?.name || 'Tutoring Session'}
                     </h1>
+                    {booking?.start_time && (
+                        <p className="text-[var(--color-primary)] font-bold mb-4">
+                            {new Date(booking.start_time).toLocaleString()}
+                        </p>
+                    )}
                     <p className="text-[var(--color-text-secondary)] mb-8">
-                        Your tutor is ready. Click below to join the video session and whiteboard.
+                        {user?.role === 'student' 
+                            ? "Waiting for your tutor to start the class." 
+                            : "Ready to start teaching?"}
                     </p>
 
                     <button
@@ -194,6 +224,13 @@ export default function SessionPage({ params }: SessionProps) {
                         </div>
                     </div>
 
+                    <button 
+                        onClick={() => setIsWhiteboardMode(!isWhiteboardMode)}
+                        className="mr-auto ml-4 px-4 py-2 rounded-xl bg-blue-100 text-blue-700 font-bold hover:bg-blue-200 transition-colors"
+                    >
+                        {isWhiteboardMode ? 'Exit Whiteboard Mode' : 'Open Whiteboard Mode'}
+                    </button>
+
                     <button
                         onClick={() => router.push('/students/dashboard')}
                         className="px-4 py-2 rounded-xl bg-red-50 text-red-600 text-sm font-bold border border-red-100 hover:bg-red-100 transition-all flex items-center gap-2"
@@ -204,27 +241,41 @@ export default function SessionPage({ params }: SessionProps) {
                 </div>
 
                 {/* MAIN CONTENT */}
-                <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
+                <div className="flex-1 flex gap-4 min-h-0 overflow-hidden relative">
 
-                    {/* LEFT: VIDEO */}
-                    <div className="w-[450px] flex-shrink-0 flex flex-col gap-4">
-                        <div className="flex-1 rounded-2xl overflow-hidden relative bg-black shadow-xl border border-gray-800 ring-1 ring-white/10">
+                    {/* VIDEO CONTAINER */}
+                    <div className={`
+                        transition - all duration - 300 ease -in -out flex flex - col gap - 4
+                        ${
+                isWhiteboardMode
+                ? 'absolute bottom-4 left-4 w-64 h-48 z-20 shadow-2xl rounded-2xl ring-2 ring-white'
+                    : 'w-[450px] flex-shrink-0 relative z-0'
+            }
+                `}>
+                        <div className="flex-1 rounded-2xl overflow-hidden relative bg-black shadow-xl border border-gray-800 ring-1 ring-white/10 h-full">
                             {/* Removed blocking overlay so user can see Jitsi errors/prompts */}
                             <div ref={jitsiRef} className="w-full h-full" />
                         </div>
 
-                        {/* Tip Card */}
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-4 flex gap-3">
-                            <span className="text-2xl">💡</span>
-                            <div className="text-sm text-[var(--color-text-secondary)]">
-                                <p className="font-bold text-[var(--color-text-primary)] mb-1">Collaborative Whiteboard</p>
-                                Use the canvas on the right to verify math problems, draw diagrams, or take notes together!
-                            </div>
                         </div>
+
+                        {/* Tip Card - Only show when NOT in whiteboard mode */}
+                        {!isWhiteboardMode && (
+                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-4 flex gap-3">
+                                <span className="text-2xl">💡</span>
+                                <div className="text-sm text-[var(--color-text-secondary)]">
+                                    <p className="font-bold text-[var(--color-text-primary)] mb-1">Collaborative Whiteboard</p>
+                                    Use the canvas to verify math problems! Toggle "Whiteboard Mode" for full screen.
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* RIGHT: WHITEBOARD */}
-                    <div className="flex-1 rounded-2xl overflow-hidden bg-white shadow-xl border border-[var(--color-border)] relative group">
+                    {/* WHITEBOARD CONTAINER */}
+                    <div className={`
+                        flex - 1 rounded - 2xl overflow - hidden bg - white shadow - xl border border - [var(--color - border)] relative group transition - all duration - 300
+                        ${ isWhiteboardMode ? 'col-span-2' : '' }
+            `}>
                         {ExcalidrawComp ? (
                             <ExcalidrawComp
                                 theme="light"
