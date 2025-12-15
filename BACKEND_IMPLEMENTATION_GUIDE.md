@@ -477,3 +477,52 @@ curl -X POST -H "Authorization: Bearer <token>" \
 7. [ ] Register in `app.module.ts`
 8. [ ] Test endpoints with curl
 9. [ ] (Optional) Set up S3/Cloudinary for recordings
+
+---
+
+## 7. Admin Dashboard Features
+
+The new Admin Dashboard requires the following endpoints to support enhanced KPIs, student lists, and tutor allocation.
+
+### `src/admin/admin.controller.ts`
+
+```typescript
+// ... existing admin controller ...
+
+@Get('stats')
+async getStats() {
+  // Update to include 'tutors' count
+  return {
+    students: await this.prisma.student.count(),
+    parents: await this.prisma.user.count({ where: { role: 'parent' } }),
+    tutors: await this.prisma.user.count({ where: { role: 'tutor' } }), // NEW
+    upcomingSessions: await this.prisma.booking.count({ ... }),
+  };
+}
+
+@Get('students')
+async getStudents() {
+  // List all students with parent info
+  return this.prisma.student.findMany({
+    include: { parent: { select: { email: true } } }
+  });
+}
+
+@Get('tutors')
+async getTutors() {
+  // List all tutors including their subjects
+  // Ensure 'subjects' field in User model or related table is queried
+  return this.prisma.user.findMany({
+    where: { role: 'tutor' },
+    select: { id: true, first_name: true, last_name: true, subjects: true }
+  });
+}
+
+@Post('allocations')
+async allocateTutor(@Body() body: { studentId: string, tutorId: string, subjectId: string }) {
+  // 1. Verify availability (optional initially)
+  // 2. Create specific matchmaking record or Booking template
+  // 3. Notify Tutor
+  return { success: true, message: 'Tutor assigned' };
+}
+```

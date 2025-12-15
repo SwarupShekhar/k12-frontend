@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import ProtectedClient from '@/app/components/ProtectedClient';
 import api from '@/app/lib/api';
 import { useRouter } from 'next/navigation';
+import { SUBJECT_LIST } from '@/app/lib/constants';
 
 export default function NewTutorPage() {
     const router = useRouter();
@@ -13,11 +14,22 @@ export default function NewTutorPage() {
         last_name: '',
         email: '',
         password: '',
-        subjects: '' // Comma separated for now, or handled by backend assumption
+        subjects: [] as string[]
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSubjectToggle = (subjectId: string) => {
+        setFormData(prev => {
+            const current = prev.subjects;
+            if (current.includes(subjectId)) {
+                return { ...prev, subjects: current.filter(s => s !== subjectId) };
+            } else {
+                return { ...prev, subjects: [...current, subjectId] };
+            }
+        });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -68,8 +80,20 @@ export default function NewTutorPage() {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Subjects (Comma separated)</label>
-                            <input name="subjects" placeholder="Math, Physics" onChange={handleChange} className="w-full px-4 py-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-primary)]" />
+                            <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">Subjects</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {SUBJECT_LIST.map((subject) => (
+                                    <label key={subject.id} className="flex items-center space-x-2 p-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.subjects.includes(subject.id)}
+                                            onChange={() => handleSubjectToggle(subject.id)}
+                                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                        />
+                                        <span className="text-sm text-[var(--color-text-primary)]">{subject.name}</span>
+                                    </label>
+                                ))}
+                            </div>
                         </div>
 
                         <button disabled={loading} type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50">
