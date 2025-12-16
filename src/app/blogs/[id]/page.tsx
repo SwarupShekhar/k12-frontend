@@ -1,71 +1,103 @@
 'use client';
 
-import React, { use } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { notFound } from 'next/navigation';
-import { MOCK_BLOGS } from '@/app/lib/mockBlogs';
+import React, { useEffect, useState, use } from 'react';
 import ReactMarkdown from 'react-markdown';
+import Link from 'next/link';
+import { blogsApi, BlogPost } from '@/app/lib/blogs';
 
-export default function BlogDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    // Unwrap params in Next.js 15+
-    const unwrappedParams = use(params);
-    const blog = MOCK_BLOGS.find(b => b.id === unwrappedParams.id);
+export default function BlogPostPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
+    const [blog, setBlog] = useState<BlogPost | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
 
-    if (!blog) {
-        notFound();
+    useEffect(() => {
+        const fetchBlog = async () => {
+            setLoading(true);
+            try {
+                const data = await blogsApi.getOne(id);
+                setBlog(data);
+            } catch (err) {
+                console.error(err);
+                setError('Blog post not found.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (id) fetchBlog();
+    }, [id]);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
+                <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
+
+    if (error || !blog) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-background)] space-y-4">
+                <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Post not found</h1>
+                <Link href="/blogs" className="text-[var(--color-primary)] hover:underline">
+                    ← Back to Blogs
+                </Link>
+            </div>
+        );
     }
 
     return (
-        <main className="min-h-screen pt-24 pb-20 px-6 relative">
-            <div className="max-w-4xl mx-auto">
-                <Link
-                    href="/blogs"
-                    className="inline-flex items-center gap-2 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] mb-8 transition-colors group"
-                >
-                    <span className="group-hover:-translate-x-1 transition-transform">←</span>
-                    Back to Blogs
-                </Link>
+        <main className="min-h-screen bg-[var(--color-background)] pb-20">
+            {/* HERO IMAGE */}
+            <div className="relative h-[60vh] w-full">
+                <div className="absolute inset-0 bg-gray-900/50 z-10" />
+                <img
+                    src={blog.imageUrl}
+                    alt={blog.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/1200x600?text=No+Image')}
+                />
 
-                {/* Hero */}
-                <div className="relative w-full h-[400px] rounded-[2.5rem] overflow-hidden shadow-2xl mb-10">
-                    <Image
-                        src={blog.image}
-                        alt={blog.title}
-                        fill
-                        className="object-cover"
-                        priority
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                    <div className="absolute bottom-0 left-0 p-8 md:p-12">
-                        <div className="inline-block px-3 py-1 bg-[var(--color-primary)] rounded-full text-xs font-bold text-white uppercase tracking-wider mb-4">
-                            {blog.category}
+                {/* Hero Content */}
+                <div className="absolute bottom-0 left-0 w-full z-20 pb-12 pt-32 bg-gradient-to-t from-[var(--color-background)] to-transparent">
+                    <div className="max-w-4xl mx-auto px-6">
+                        <div className="flex gap-3 mb-4">
+                            <span className="px-3 py-1 rounded-full bg-[var(--color-primary)] text-white text-xs font-bold uppercase tracking-wider">
+                                {blog.category}
+                            </span>
                         </div>
-                        <h1 className="text-3xl md:text-5xl font-black text-white mb-4 leading-tight">
+                        <h1 className="text-4xl md:text-6xl font-black text-white mb-6 leading-tight drop-shadow-lg">
                             {blog.title}
                         </h1>
-                        <div className="flex items-center gap-6 text-white/80">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur flex items-center justify-center text-white text-xs font-bold">
-                                    {blog.author.charAt(0)}
-                                </div>
-                                <span className="font-medium">{blog.author}</span>
+                        <div className="flex items-center gap-4 text-white/90">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-sm">
+                                {blog.author?.first_name?.charAt(0) || 'A'}
                             </div>
-                            <span>{blog.date}</span>
-                            <span>{blog.readTime}</span>
+                            <div>
+                                <p className="font-bold">{blog.author?.first_name} {blog.author?.last_name}</p>
+                                <p className="text-sm opacity-80">
+                                    {new Date(blog.createdAt).toLocaleDateString()}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
-
-                {/* Content */}
-                <article className="prose prose-lg dark:prose-invert max-w-none bg-glass p-8 md:p-12 rounded-[2rem] border border-white/20 shadow-lg">
-                    <ReactMarkdown>{blog.content}</ReactMarkdown>
-                </article>
-
             </div>
 
-            {/* Decoration */}
-            <div className="fixed top-40 left-1/2 -translate-x-1/2 w-full max-w-5xl h-[500px] bg-gradient-to-r from-blue-500/10 to-purple-500/10 blur-[100px] rounded-full pointer-events-none -z-10" />
+            {/* CONTENT */}
+            <article className="max-w-3xl mx-auto px-6 mt-12">
+                <div className="prose prose-lg dark:prose-invert prose-headings:font-bold prose-headings:text-[var(--color-text-primary)] prose-p:text-[var(--color-text-secondary)] prose-a:text-[var(--color-primary)] transition-colors">
+                    <ReactMarkdown>{blog.content}</ReactMarkdown>
+                </div>
+
+                {/* Back Button */}
+                <div className="mt-16 pt-8 border-t border-[var(--color-border)]">
+                    <Link href="/blogs" className="inline-flex items-center gap-2 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] font-medium transition-colors">
+                        <span>←</span> Back to all articles
+                    </Link>
+                </div>
+            </article>
         </main>
     );
 }

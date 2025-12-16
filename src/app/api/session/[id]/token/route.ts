@@ -35,12 +35,15 @@ export async function GET(
     }
 
     try {
+        console.log(`[Jitsi Token] Verifying booking access for User: ${userId} (${userEmail}) in Session: ${sessionId}`);
+
         // 3. Verify Booking Access via Backend
         // We call the backend with the user's token. If they can access the booking, they are a participant.
         const bookingRes = await axios.get(`${API_URL}/bookings/${sessionId}`, {
             headers: { Authorization: authHeader }
         });
 
+        console.log('[Jitsi Token] Backend verification success. Booking:', bookingRes.data?.id);
         const booking = bookingRes.data;
 
         // 4. Determine Role
@@ -49,9 +52,16 @@ export async function GET(
 
         // Ensure IDs match. Assuming booking returns objects with ids or just ids.
         const tutorId = booking.tutor_id || booking.tutor?.id;
+        const tutorEmail = booking.tutor?.email;
 
-        if (tutorId === userId) {
+        console.log(`[Jitsi Token] Checking role. UserID: ${userId}, TutorID: ${tutorId}`);
+        console.log(`[Jitsi Token] Checking role by Email. UserEmail: ${userEmail}, TutorEmail: ${tutorEmail}`);
+
+        if (tutorId === userId || (tutorEmail && userEmail && tutorEmail === userEmail)) {
             isModerator = true;
+            console.log('[Jitsi Token] User verified as MODERATOR.');
+        } else {
+            console.log('[Jitsi Token] User verified as PARTICIPANT.');
         }
 
         // 5. Generate Jitsi Token
@@ -64,14 +74,21 @@ export async function GET(
         };
 
         const jitsiToken = generateJitsiToken(jitsiUser, sessionId);
+        console.log('[Jitsi Token] Token generated successfully.');
 
         return NextResponse.json({ token: jitsiToken });
 
     } catch (error: any) {
         console.error('[Jitsi Token] Error verifying booking:', error.message);
-        if (error.response?.status === 403 || error.response?.status === 401) {
-            return NextResponse.json({ message: 'Unauthorized to access this session' }, { status: 403 });
+        if (error.response) {
+            console.error('[Jitsi Token] Backend Error Data:', error.response.data);
+            console.error('[Jitsi Token] Backend Error Status:', error.response.status);
+
+            if (error.response.status === 403 || error.response.status === 401) {
+                return NextResponse.json({ message: 'Unauthorized to access this session' }, { status: 403 });
+            }
         }
-        return NextResponse.json({ message: 'Failed to verify session access' }, { status: 500 });
+
+        return NextResponse.json({ message: 'Failed to verify session access', error: error.message }, { status: 500 });
     }
 }
