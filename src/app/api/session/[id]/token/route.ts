@@ -88,6 +88,10 @@ export async function GET(
         }
 
         // 5. Generate Jitsi Token
+        // CRITICAL FIX: The token MUST be generated for the EXACT same room name the frontend joins.
+        // Frontend uses: `K12Session${sessionId.replace(/-/g, '').slice(0, 16)}`
+        const roomName = `K12Session${sessionId.replace(/-/g, '').slice(0, 16)}`;
+
         const jitsiUser = {
             id: userId,
             name: userName,
@@ -96,13 +100,13 @@ export async function GET(
             moderator: isModerator
         };
 
-        const jitsiToken = generateJitsiToken(jitsiUser, sessionId);
-        console.log('[Jitsi Token] Token generated. Moderator:', isModerator);
+        const jitsiToken = generateJitsiToken(jitsiUser, roomName);
+        console.log(`[Jitsi Token] Generated for Room: ${roomName}. Moderator: ${isModerator}`);
 
         return NextResponse.json({
             token: jitsiToken,
             // Return debug info in response for frontend inspection if needed
-            debug: { isModerator, tutorId, userId, match: isModerator }
+            debug: { isModerator, tutorId, userId, match: isModerator, roomName }
         });
 
     } catch (error: any) {
