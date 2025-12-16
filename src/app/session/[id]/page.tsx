@@ -59,6 +59,39 @@ export default function SessionPage({ params }: SessionProps) {
     const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
     const [ExcalidrawComp, setExcalidrawComp] = useState<any>(null);
 
+    // Draggable Video State
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const isDragging = useRef(false);
+    const dragStart = useRef({ x: 0, y: 0 });
+    const startPos = useRef({ x: 0, y: 0 });
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        // Prevent default to avoid text selection etc
+        e.preventDefault();
+        isDragging.current = true;
+        dragStart.current = { x: e.clientX, y: e.clientY };
+        startPos.current = { ...position };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+        if (!isDragging.current) return;
+        const dx = e.clientX - dragStart.current.x;
+        const dy = e.clientY - dragStart.current.y;
+        setPosition({
+            x: startPos.current.x + dx,
+            y: startPos.current.y + dy
+        });
+    };
+
+    const handleMouseUp = () => {
+        isDragging.current = false;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+    };
+
     useEffect(() => {
         import('@excalidraw/excalidraw').then((mod) => setExcalidrawComp(() => mod.Excalidraw));
     }, []);
@@ -381,15 +414,26 @@ export default function SessionPage({ params }: SessionProps) {
             </div>
 
             {/* 3. OVERLAY LAYER: FLOATING VIDEO (JITSI) */}
-            <div className="absolute bottom-6 left-6 z-20 w-[300px] h-[200px] md:w-[400px] md:h-[250px] transition-all hover:scale-[1.02]">
+            <div
+                className="absolute bottom-6 left-6 z-20 w-[300px] h-[200px] md:w-[400px] md:h-[250px] transition-transform hover:shadow-2xl"
+                style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
+            >
                 <div className="w-full h-full rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/20 ring-1 ring-black/10 relative group">
 
                     {/* Access to Jitsi Container */}
                     <div ref={jitsiRef} className="w-full h-full" />
 
-                    {/* Hover Handle/Title */}
-                    <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        <span className="text-white text-xs font-medium ml-1">Video Feed</span>
+                    {/* Draggable Handle Overlay */}
+                    <div
+                        onMouseDown={handleMouseDown}
+                        className="absolute top-0 left-0 w-full h-12 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-start pt-2 pl-3 z-30"
+                    >
+                        <div className="flex items-center gap-1.5 text-white/90 bg-black/40 px-2 py-1 rounded-md backdrop-blur-sm border border-white/10">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                            </svg>
+                            <span className="text-xs font-semibold tracking-wide">Drag to move</span>
+                        </div>
                     </div>
                 </div>
             </div>
