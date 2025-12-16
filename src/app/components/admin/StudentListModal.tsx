@@ -24,7 +24,10 @@ export default function StudentListModal({ isOpen, onClose }: StudentListModalPr
             setLoading(true);
             // Mock fetching data if API not ready, or call real endpoint
             api.get('/admin/students')
-                .then(res => setStudents(res.data))
+                .then(res => {
+                    const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+                    setStudents(data);
+                })
                 .catch(() => {
                     // Fallback mock data for demo
                     setStudents([

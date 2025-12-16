@@ -28,8 +28,13 @@ export default function TutorAllocationModal({ isOpen, onClose }: TutorAllocatio
             ]).then(([studentsRes, tutorsRes]) => {
                 console.log('[TutorAllocation] Fetched students:', studentsRes.data);
                 console.log('[TutorAllocation] Fetched tutors:', tutorsRes.data);
-                setStudents(studentsRes.data);
-                setTutors(tutorsRes.data);
+
+                // Robustly handle paginated vs flat responses
+                const studentsData = Array.isArray(studentsRes.data) ? studentsRes.data : (studentsRes.data.data || []);
+                const tutorsData = Array.isArray(tutorsRes.data) ? tutorsRes.data : (tutorsRes.data.data || []);
+
+                setStudents(studentsData);
+                setTutors(tutorsData);
             });
         }
     }, [isOpen]);

@@ -23,7 +23,10 @@ export default function TutorListModal({ isOpen, onClose }: TutorListModalProps)
         if (isOpen) {
             setLoading(true);
             api.get('/admin/tutors')
-                .then(res => setTutors(res.data))
+                .then(res => {
+                    const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+                    setTutors(data);
+                })
                 .catch(() => {
                     // Fallback / Mock data
                     setTutors([
