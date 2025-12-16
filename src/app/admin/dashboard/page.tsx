@@ -106,8 +106,11 @@ export default function AdminDashboardPage() {
                         >
                             ⚡ Allocate Tutor to Student
                         </button>
-                        <Link href="/admin/tutors/new" className="block w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-center rounded-lg transition-colors shadow-lg">
+                        <Link href="/admin/tutors/new" className="block w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-center rounded-lg transition-colors shadow-lg mb-3">
                             + Add New Tutor
+                        </Link>
+                        <Link href="/admin/blogs/new" className="block w-full py-3 bg-pink-600 hover:bg-pink-700 text-white font-bold text-center rounded-lg transition-colors shadow-lg">
+                            + Write New Blog
                         </Link>
                     </div>
 

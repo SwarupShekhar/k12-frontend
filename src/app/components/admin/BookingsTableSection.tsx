@@ -145,6 +145,7 @@ export default function BookingsTableSection() {
                     Next
                 </button>
             </div>
+
         </section>
     );
 }

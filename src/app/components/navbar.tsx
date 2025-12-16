@@ -57,6 +57,13 @@ export default function Navbar() {
           >
             Pricing
           </Link>
+          <Link
+            href="/blogs"
+            className={`text-sm lg:text-base font-medium transition-colors ${isActive('/blogs') ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
+              }`}
+          >
+            Blogs
+          </Link>
 
           {/* Show Dashboard link if logged in */}
           {user && (
