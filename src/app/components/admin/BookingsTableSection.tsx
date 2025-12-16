@@ -41,7 +41,6 @@ export default function BookingsTableSection() {
                 const res = await api.get(`/admin/bookings?page=${page}&limit=10`);
                 // Handle different response structures gracefully
                 const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
-                console.log('[Admin] Bookings Data Snippet:', data[0]); // Debug for name mismatch
                 setBookings(data);
             } catch (error) {
                 console.error('Failed to fetch admin bookings', error);
