@@ -12,6 +12,18 @@ interface Booking {
     status: string;
 }
 
+// Safe formatting helper
+const safeFormatDate = (dateString: string | undefined | null) => {
+    if (!dateString) return '—';
+    try {
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return 'Invalid Date';
+        return format(d, 'PP p');
+    } catch {
+        return 'Invalid Date';
+    }
+};
+
 export default function BookingsTableSection() {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
@@ -99,13 +111,13 @@ export default function BookingsTableSection() {
                                         )}
                                     </td>
                                     <td className="py-4 px-4 text-sm text-[var(--color-text-secondary)]">
-                                        {format(new Date(b.start_time), 'PP p')}
+                                        {safeFormatDate(b.start_time)}
                                     </td>
                                     <td className="py-4 px-4">
                                         <span className={`text-xs font-bold uppercase ${b.status === 'confirmed' ? 'text-green-500' :
-                                                b.status === 'completed' ? 'text-blue-500' :
-                                                    b.status === 'cancelled' ? 'text-red-500' :
-                                                        'text-gray-500'
+                                            b.status === 'completed' ? 'text-blue-500' :
+                                                b.status === 'cancelled' ? 'text-red-500' :
+                                                    'text-gray-500'
                                             }`}>
                                             {b.status}
                                         </span>
