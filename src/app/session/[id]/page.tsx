@@ -89,8 +89,14 @@ export default function SessionPage({ params }: SessionProps) {
                 const { WebsocketProvider } = await import('y-websocket');
                 const ydoc = new Y.Doc();
 
-                // Use environment variable or fallback to localhost
-                const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:1234';
+                // Use environment variable or local-only mode
+                const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+
+                if (!wsUrl) {
+                    console.log('[Collab] No WS_URL defined. Running in offline/local-only mode.');
+                    return; // Don't try to connect to localhost in production
+                }
+
                 // Remove spaces from room name
                 const roomName = `k12-session-${sessionId}`;
 
@@ -177,31 +183,36 @@ export default function SessionPage({ params }: SessionProps) {
 
 
 
-        // Fetch JWT Token First
-        api.get(`/session/${sessionId}/token`)
-            .then(res => {
-                const jwt = res.data.token;
-
-                // @ts-ignore
-                const apiObj = new window.JitsiMeetExternalAPI(domain, {
-                    ...options,
-                    jwt: jwt
-                });
-                jitsiApiRef.current = apiObj;
-
-                apiObj.addEventListener('videoConferenceJoined', (ev: any) => {
-                    console.log('[Jitsi] Joined conference:', ev);
-                    setJitsiLoading(false);
-                });
-
-                apiObj.addEventListener('videoConferenceLeft', () => {
-                    console.log('[Jitsi] Conference left');
-                });
+        // Fetch JWT Token First from Next.js API (Not Backend directly)
+        const token = localStorage.getItem('token');
+        import('axios').then(axios => {
+            axios.default.get(`/api/session/${sessionId}/token`, {
+                headers: { Authorization: `Bearer ${token}` }
             })
-            .catch(err => {
-                console.error('[Jitsi] Failed to get token:', err);
-                alert('Failed to join secure session. Please try again.');
-            });
+                .then(res => {
+                    const jwt = res.data.token;
+
+                    // @ts-ignore
+                    const apiObj = new window.JitsiMeetExternalAPI(domain, {
+                        ...options,
+                        jwt: jwt
+                    });
+                    jitsiApiRef.current = apiObj;
+
+                    apiObj.addEventListener('videoConferenceJoined', (ev: any) => {
+                        console.log('[Jitsi] Joined conference:', ev);
+                        setJitsiLoading(false);
+                    });
+
+                    apiObj.addEventListener('videoConferenceLeft', () => {
+                        console.log('[Jitsi] Conference left');
+                    });
+                })
+                .catch(err => {
+                    console.error('[Jitsi] Failed to get token:', err);
+                    alert('Failed to join secure session. Please try again.');
+                });
+        });
 
         return () => {
             // Remove listeners to prevent memory leaks and unwanted triggers during unmount
