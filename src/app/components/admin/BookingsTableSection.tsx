@@ -5,7 +5,12 @@ import { format } from 'date-fns';
 
 interface Booking {
     id: string;
-    student: { first_name: string; last_name: string };
+    student: {
+        first_name: string;
+        last_name: string;
+        // Backend might send nested user with login name
+        user?: { first_name: string; last_name: string };
+    };
     tutor?: { first_name: string; last_name: string };
     subject: { name: string };
     start_time: string;
@@ -36,6 +41,7 @@ export default function BookingsTableSection() {
                 const res = await api.get(`/admin/bookings?page=${page}&limit=10`);
                 // Handle different response structures gracefully
                 const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+                console.log('[Admin] Bookings Data Snippet:', data[0]); // Debug for name mismatch
                 setBookings(data);
             } catch (error) {
                 console.error('Failed to fetch admin bookings', error);
@@ -94,7 +100,8 @@ export default function BookingsTableSection() {
                             bookings.map((b) => (
                                 <tr key={b.id} className="hover:bg-[var(--color-surface)]/50 transition-colors">
                                     <td className="py-4 px-4 font-medium text-[var(--color-text-primary)]">
-                                        {b.student?.first_name} {b.student?.last_name}
+                                        {/* Prefer User Login Name (Thomas) over Student Profile Name (Student) */}
+                                        {b.student?.user?.first_name || b.student?.first_name} {b.student?.user?.last_name || b.student?.last_name}
                                     </td>
                                     <td className="py-4 px-4 text-[var(--color-text-primary)]">
                                         {b.subject?.name}
