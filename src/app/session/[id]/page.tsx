@@ -198,12 +198,12 @@ export default function SessionPage({ params }: SessionProps) {
 
         setJitsiLoading(true);
 
-        // Fetch JWT Token DIRECTLY from Backend (Bypassing Next.js Proxy to avoid 404s)
+        // Fetch JWT Token via Next.js Proxy (which handles Backend Fallback)
         const token = localStorage.getItem('K12_TOKEN');
         import('axios').then(axios => {
-            console.log(`[Jitsi] Fetching token from Backend: ${API_URL}/sessions/${sessionId}/jitsi-token`);
+            console.log(`[Jitsi] Fetching token via Proxy: /api/session/${sessionId}/token`);
 
-            axios.default.get(`${API_URL}/sessions/${sessionId}/jitsi-token`, {
+            axios.default.get(`/api/session/${sessionId}/token`, {
                 headers: { Authorization: `Bearer ${token}` }
             })
                 .then(res => {
@@ -212,10 +212,8 @@ export default function SessionPage({ params }: SessionProps) {
 
                     const jwt = res.data.token;
                     const authorizedRoomName = res.data.roomName;
-                    // Backend logic for script URL or fallback
-                    const JITSI_APP_ID = process.env.NEXT_PUBLIC_JITSI_APP_ID;
-                    // Note: Frontend doesn't strictly know App ID unless env var is exposed,
-                    // but we rely on Backend's scriptUrl or fallback to public.
+
+                    // Use scriptUrl from response (Proxy handles logic) or fallback
                     const scriptUrl = res.data.scriptUrl || 'https://meet.jit.si/external_api.js';
 
                     if (!jwt) {
