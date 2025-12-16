@@ -59,10 +59,19 @@ export function generateJitsiToken(user: JitsiUser, room: string) {
         nbf: nbf
     };
 
-    const signOptions: any = {};
+    const signOptions: any = { algorithm: 'RS256' };
     if (isJaaS && JITSI_KID) {
         signOptions.header = { kid: JITSI_KID };
     }
 
-    return jwt.sign(payload, JITSI_SECRET, signOptions);
+    try {
+        // Sanitize the key: Vercel/Render env vars often escape newlines
+        const privateKey = JITSI_SECRET.replace(/\\n/g, '\n');
+
+        console.log('[Jitsi Lib] Signing token...');
+        return jwt.sign(payload, privateKey, signOptions);
+    } catch (e: any) {
+        console.error('[Jitsi Lib] Token signing failed:', e.message);
+        throw e;
+    }
 }
