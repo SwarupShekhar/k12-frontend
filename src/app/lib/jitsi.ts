@@ -15,7 +15,16 @@ export function generateJitsiToken(user: JitsiUser, room: string) {
     // For local dev/test without a JaaS account, we use flexible defaults
     // If using JaaS, JITSI_APP_ID should be the "kid" or AppID
     const JITSI_APP_ID = process.env.JITSI_APP_ID || 'my-app-id';
-    const JITSI_SECRET = process.env.JITSI_SECRET || 'my-secret-key';
+
+    // SUPPORT BOTH NAMING CONVENTIONS
+    const JITSI_SECRET = process.env.JITSI_SECRET || process.env.JITSI_APP_SECRET || 'my-secret-key';
+
+    if (JITSI_SECRET === 'my-secret-key') {
+        console.warn('[Jitsi lib] WARNING: Using default unsafe secret. Token will likely be rejected by Jitsi server unless testing.');
+    } else {
+        console.log('[Jitsi lib] Using configured Jitsi Secret.');
+    }
+
     const JITSI_DOMAIN = process.env.JITSI_DOMAIN || 'meet.jit.si';
     // END: Environment variables
 
