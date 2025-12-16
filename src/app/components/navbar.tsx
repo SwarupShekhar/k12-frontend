@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
+import NotificationsBtn from './NotificationsBtn';
 
 import { useAuthContext } from '@/app/context/AuthContext';
 
@@ -66,10 +67,10 @@ export default function Navbar() {
                     '/parent/dashboard'
               }
               className={`text-sm lg:text-base font-medium transition-colors ${isActive('/parent/dashboard') ||
-                  isActive('/students/dashboard') ||
-                  isActive('/tutor/dashboard')
-                  ? 'text-[var(--color-primary)]'
-                  : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
+                isActive('/students/dashboard') ||
+                isActive('/tutor/dashboard')
+                ? 'text-[var(--color-primary)]'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]'
                 }`}
             >
               Dashboard
@@ -105,6 +106,9 @@ export default function Navbar() {
               Login
             </Link>
           )}
+
+          {/* Notifications */}
+          {user && <NotificationsBtn />}
 
           <div className="scale-75 origin-right">
             <ThemeToggle />

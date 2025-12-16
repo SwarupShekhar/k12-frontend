@@ -8,6 +8,7 @@ import TutorListModal from '@/app/components/admin/TutorListModal';
 import { useAuthContext } from '@/app/context/AuthContext';
 import Link from 'next/link';
 import api from '@/app/lib/api';
+import BookingsTableSection from '@/app/components/admin/BookingsTableSection';
 
 export default function AdminDashboardPage() {
     const { user } = useAuthContext();
@@ -117,12 +118,17 @@ export default function AdminDashboardPage() {
                         <p className="text-sm text-[var(--color-text-secondary)]">Monitoring: <span className="text-green-600 font-bold">Online</span></p>
                     </div>
                 </div>
+
+                {/* BOOKINGS TABLE SECTION */}
+                <div className="mt-8">
+                    <BookingsTableSection />
+                </div>
             </div>
 
             {/* MODALS */}
             <StudentListModal isOpen={showStudents} onClose={() => setShowStudents(false)} />
             <TutorAllocationModal isOpen={showAllocation} onClose={() => setShowAllocation(false)} />
             <TutorListModal isOpen={showTutors} onClose={() => setShowTutors(false)} />
-        </ProtectedClient>
+        </ProtectedClient >
     );
 }

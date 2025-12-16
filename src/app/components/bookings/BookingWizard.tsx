@@ -160,6 +160,13 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
 
             // Redirect to booking detail if exists else dashboard
             if (newBooking?.id) {
+                // If tutor assigned immediately, we can pass a flag or rely on the page to show it
+                const assignedTutor = newBooking.assigned_tutor || newBooking.tutor;
+                if (assignedTutor) {
+                    alert(`Success! Tutor ${assignedTutor.first_name} has been assigned to this session.`);
+                } else {
+                    alert('Booking requested! We will assign a tutor shortly.');
+                }
                 router.push(`/bookings/${newBooking.id}`);
             } else if (user?.role === 'student') {
                 router.push('/students/dashboard');

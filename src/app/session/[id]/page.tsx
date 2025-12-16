@@ -36,7 +36,7 @@ export default function SessionPage({ params }: SessionProps) {
     const [hasJoined, setHasJoined] = useState(false); // New state for Join Overlay
     const [meetReady, setMeetReady] = useState(false);
     const [jitsiLoading, setJitsiLoading] = useState(true);
-    const [isWhiteboardMode, setIsWhiteboardMode] = useState(false); // New Layout Toggle
+    // const [isWhiteboardMode, setIsWhiteboardMode] = useState(false); // Removed
     const [booking, setBooking] = useState<BookingDetails | null>(null);
 
     // Fetch Booking Details
@@ -175,36 +175,44 @@ export default function SessionPage({ params }: SessionProps) {
             },
         };
 
-        // @ts-ignore
-        const apiObj = new window.JitsiMeetExternalAPI(domain, options);
-        jitsiApiRef.current = apiObj;
 
-        apiObj.addEventListener('videoConferenceJoined', (ev: any) => {
-            console.log('[Jitsi] Joined conference:', ev);
-            setJitsiLoading(false);
-        });
 
-        // Handle hangup event
-        const handleLeft = () => {
-            console.log('[Jitsi] Conference left - Stay on page for debugging');
-            // TEMPORARILY DISABLED REDIRECT to debug loop
-            // const role = userRef.current?.role;
-            // if (role === 'tutor') router.push('/tutor/dashboard');
-            // else if (role === 'parent') router.push('/parent/dashboard');
-            // else router.push('/students/dashboard');
-        };
+        // Fetch JWT Token First
+        api.get(`/session/${sessionId}/token`)
+            .then(res => {
+                const jwt = res.data.token;
 
-        apiObj.addEventListener('videoConferenceLeft', handleLeft);
-        apiObj.addEventListener('readyToClose', handleLeft);
+                // @ts-ignore
+                const apiObj = new window.JitsiMeetExternalAPI(domain, {
+                    ...options,
+                    jwt: jwt
+                });
+                jitsiApiRef.current = apiObj;
+
+                apiObj.addEventListener('videoConferenceJoined', (ev: any) => {
+                    console.log('[Jitsi] Joined conference:', ev);
+                    setJitsiLoading(false);
+                });
+
+                apiObj.addEventListener('videoConferenceLeft', () => {
+                    console.log('[Jitsi] Conference left');
+                });
+            })
+            .catch(err => {
+                console.error('[Jitsi] Failed to get token:', err);
+                alert('Failed to join secure session. Please try again.');
+            });
 
         return () => {
             // Remove listeners to prevent memory leaks and unwanted triggers during unmount
             try {
-                apiObj.removeEventListener('videoConferenceLeft', handleLeft);
-                apiObj.removeEventListener('readyToClose', handleLeft);
-                apiObj.dispose();
+                if (jitsiApiRef.current) {
+                    jitsiApiRef.current.dispose();
+                    jitsiApiRef.current = null;
+                }
             } catch (e) { }
         };
+
     }, [hasJoined, meetReady, sessionId]);
 
     // Show loading while auth is initializing
@@ -261,112 +269,88 @@ export default function SessionPage({ params }: SessionProps) {
     }
 
     return (
-        <div className="min-h-screen bg-[var(--color-background)] p-4 md:p-6 transition-all duration-500">
-            <div className="max-w-[1800px] mx-auto h-[calc(100vh-100px)] flex flex-col">
+        <div className="h-screen w-screen overflow-hidden bg-[var(--color-background)] relative">
 
-                {/* HEADER */}
-                <div className="bg-glass rounded-2xl p-4 mb-4 border border-white/20 shadow-sm flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
-                            <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse relative z-10" />
-                            <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-[var(--color-text-primary)]">
-                                Live Tutoring Session
-                            </h1>
-                            <p className="text-sm text-[var(--color-text-secondary)]">
-                                Session ID: {sessionId.slice(0, 8)}...
-                            </p>
-                        </div>
-                    </div>
-
-                    <button
-                        onClick={() => setIsWhiteboardMode(!isWhiteboardMode)}
-                        className="mr-auto ml-4 px-4 py-2 rounded-xl bg-blue-100 text-blue-700 font-bold hover:bg-blue-200 transition-colors"
-                    >
-                        {isWhiteboardMode ? 'Exit Whiteboard Mode' : 'Open Whiteboard Mode'}
-                    </button>
-
-                    <button
-                        onClick={() => {
-                            if (user?.role === 'tutor') router.push('/tutor/dashboard');
-                            else if (user?.role === 'parent') router.push('/parent/dashboard');
-                            else router.push('/students/dashboard');
+            {/* 1. BACKGROUND LAYER: WHITEBOARD */}
+            <div className="absolute inset-0 z-0">
+                {ExcalidrawComp ? (
+                    <ExcalidrawComp
+                        theme="light"
+                        excalidrawAPI={(api: any) => setExcalidrawAPI(api)}
+                        initialData={{
+                            elements: [],
+                            appState: {
+                                viewBackgroundColor: '#ffffff',
+                                currentItemFontFamily: 1,
+                                showWelcomeScreen: false
+                            },
+                            scrollToContent: true
                         }}
-                        className="px-4 py-2 rounded-xl bg-red-50 text-red-600 text-sm font-bold border border-red-100 hover:bg-red-100 transition-all flex items-center gap-2"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                        End Session
-                    </button>
-                </div>
-
-                {/* MAIN CONTENT */}
-                <div className="flex-1 flex gap-4 min-h-0 overflow-hidden relative">
-
-                    {/* VIDEO CONTAINER */}
-                    <div className={`
-                        transition - all duration - 300 ease -in -out flex flex - col gap - 4
-                        ${isWhiteboardMode
-                            ? 'absolute bottom-4 left-4 w-64 h-48 z-20 shadow-2xl rounded-2xl ring-2 ring-white'
-                            : 'w-[450px] flex-shrink-0 relative z-0'
-                        }
-                `}>
-                        <div className="flex-1 rounded-2xl overflow-hidden relative bg-black shadow-xl border border-gray-800 ring-1 ring-white/10 h-full">
-                            {/* Removed blocking overlay so user can see Jitsi errors/prompts */}
-                            <div ref={jitsiRef} className="w-full h-full" />
-                        </div>
-
+                        UIOptions={{
+                            canvasActions: {
+                                loadScene: false,
+                                saveToActiveFile: false,
+                                export: { saveFileToDisk: true },
+                                saveAsImage: true,
+                                toggleTheme: false
+                            }
+                        }}
+                    />
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-[var(--color-text-secondary)] bg-gray-50">
+                        <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4" />
+                        <p className="font-medium">Loading Canvas...</p>
                     </div>
+                )}
+            </div>
 
-                    {/* Tip Card - Only show when NOT in whiteboard mode */}
-                    {!isWhiteboardMode && (
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-4 flex gap-3">
-                            <span className="text-2xl">💡</span>
-                            <div className="text-sm text-[var(--color-text-secondary)]">
-                                <p className="font-bold text-[var(--color-text-primary)] mb-1">Collaborative Whiteboard</p>
-                                Use the canvas to verify math problems! Toggle "Whiteboard Mode" for full screen.
-                            </div>
-                        </div>
-                    )}
+            {/* 2. OVERLAY LAYER: FLOATING HEADER */}
+            <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-start pointer-events-none">
+                {/* Header Card */}
+                <div className="bg-glass/90 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-lg pointer-events-auto flex items-center gap-4 max-w-sm">
+                    <div className="relative">
+                        <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse relative z-10" />
+                        <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75" />
+                    </div>
+                    <div>
+                        <h1 className="text-sm font-bold text-[var(--color-text-primary)]">
+                            {booking?.subject?.name || 'Session'}
+                        </h1>
+                        <p className="text-xs text-[var(--color-text-secondary)]">
+                            ID: {sessionId.slice(0, 8)}...
+                        </p>
+                    </div>
                 </div>
 
-                {/* WHITEBOARD CONTAINER */}
-                <div className={`
-                        flex - 1 rounded - 2xl overflow - hidden bg - white shadow - xl border border - [var(--color - border)] relative group transition - all duration - 300
-                        ${isWhiteboardMode ? 'col-span-2' : ''}
-            `}>
-                    {ExcalidrawComp ? (
-                        <ExcalidrawComp
-                            theme="light"
-                            excalidrawAPI={(api: any) => setExcalidrawAPI(api)}
-                            initialData={{
-                                elements: [],
-                                appState: {
-                                    viewBackgroundColor: '#ffffff',
-                                    currentItemFontFamily: 1,
-                                    showWelcomeScreen: false
-                                },
-                                scrollToContent: true
-                            }}
-                            UIOptions={{
-                                canvasActions: {
-                                    loadScene: false,
-                                    saveToActiveFile: false,
-                                    export: { saveFileToDisk: true },
-                                    saveAsImage: true,
-                                    toggleTheme: false
-                                }
-                            }}
-                        />
-                    ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-[var(--color-text-secondary)] bg-gray-50">
-                            <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4" />
-                            <p className="font-medium">Loading Canvas...</p>
-                        </div>
-                    )}
+                {/* End Session Button */}
+                <button
+                    onClick={() => {
+                        if (user?.role === 'tutor') router.push('/tutor/dashboard');
+                        else if (user?.role === 'parent') router.push('/parent/dashboard');
+                        else router.push('/students/dashboard');
+                    }}
+                    className="pointer-events-auto px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-bold shadow-lg hover:bg-red-600 hover:scale-105 transition-all flex items-center gap-2"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    End
+                </button>
+            </div>
+
+            {/* 3. OVERLAY LAYER: FLOATING VIDEO (JITSI) */}
+            <div className="absolute bottom-6 left-6 z-20 w-[300px] h-[200px] md:w-[400px] md:h-[250px] transition-all hover:scale-[1.02]">
+                <div className="w-full h-full rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/20 ring-1 ring-black/10 relative group">
+
+                    {/* Access to Jitsi Container */}
+                    <div ref={jitsiRef} className="w-full h-full" />
+
+                    {/* Hover Handle/Title */}
+                    <div className="absolute top-0 left-0 w-full p-2 bg-gradient-to-b from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <span className="text-white text-xs font-medium ml-1">Video Feed</span>
+                    </div>
                 </div>
             </div>
+
+            {/* 4. OVERLAY LAYER: CHAT (Existing FAB) */}
             <SessionChat />
         </div>
     );
