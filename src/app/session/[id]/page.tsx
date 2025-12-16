@@ -360,7 +360,7 @@ export default function SessionPage({ params }: SessionProps) {
 
             {/* 3. OVERLAY LAYER: CHAT SIDEBAR */}
             < div className="absolute right-4 top-20 bottom-4 z-10 w-80 pointer-events-auto">
-                < SessionChat sessionId={sessionId} currentUser={user} />
+                <SessionChat />
             </div >
         </div >
     );
