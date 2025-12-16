@@ -59,19 +59,23 @@ export function generateJitsiToken(user: JitsiUser, room: string) {
         nbf: nbf
     };
 
-    const signOptions: any = { algorithm: 'RS256' };
+    // Auto-detect algorithm based on key format
+    const sanitizedKey = JITSI_SECRET.replace(/\\n/g, '\n');
+    const isRSAKey = sanitizedKey.includes('-----BEGIN');
+    const algorithm = isRSAKey ? 'RS256' : 'HS256';
+
+    const signOptions: any = { algorithm };
     if (isJaaS && JITSI_KID) {
         signOptions.header = { kid: JITSI_KID };
     }
 
     try {
-        // Sanitize the key: Vercel/Render env vars often escape newlines
-        const privateKey = JITSI_SECRET.replace(/\\n/g, '\n');
-
-        console.log('[Jitsi Lib] Signing token...');
-        return jwt.sign(payload, privateKey, signOptions);
+        console.log(`[Jitsi Lib] Signing token with ${algorithm}...`);
+        return jwt.sign(payload, sanitizedKey, signOptions);
     } catch (e: any) {
         console.error('[Jitsi Lib] Token signing failed:', e.message);
+        console.error('[Jitsi Lib] Algorithm:', algorithm, 'IsJaaS:', isJaaS);
+        console.error('[Jitsi Lib] Key starts with:', sanitizedKey.substring(0, 50));
         throw e;
     }
 }
