@@ -61,20 +61,6 @@ export default function SessionPage({ params }: SessionProps) {
 
     useEffect(() => {
         import('@excalidraw/excalidraw').then((mod) => setExcalidrawComp(() => mod.Excalidraw));
-
-        // lazy load Jitsi script
-        const checkJitsi = () => {
-            // @ts-ignore
-            if (typeof window !== 'undefined' && window.JitsiMeetExternalAPI) {
-                setMeetReady(true);
-            } else {
-                const s = document.createElement('script');
-                s.src = 'https://meet.jit.si/external_api.js';
-                s.onload = () => setMeetReady(true);
-                document.head.appendChild(s);
-            }
-        };
-        checkJitsi();
     }, []);
 
     // Yjs Collaboration Logic
@@ -137,9 +123,9 @@ export default function SessionPage({ params }: SessionProps) {
 
     // Initialize Jitsi ONLY after user clicks "Join"
     useEffect(() => {
-        // Only init if user has joined and libs are ready
+        // Only init if user has joined
         // @ts-ignore
-        if (!hasJoined || !meetReady || !jitsiRef.current || !window.JitsiMeetExternalAPI) return;
+        if (!hasJoined || !jitsiRef.current) return;
 
         // Cleanup previous instance if any
         if (jitsiApiRef.current) {
@@ -195,6 +181,7 @@ export default function SessionPage({ params }: SessionProps) {
 
                     const jwt = res.data.token;
                     const authorizedRoomName = res.data.roomName; // Use the room name signed by the backend
+                    const scriptUrl = res.data.scriptUrl || 'https://meet.jit.si/external_api.js';
 
                     if (!jwt) {
                         console.warn('[Jitsi] No token received.');
@@ -205,24 +192,54 @@ export default function SessionPage({ params }: SessionProps) {
                     // Update options with the correct room name from the backend
                     const finalOptions = {
                         ...options,
-                        roomName: authorizedRoomName || options.roomName, // Fallback to local logic if missing (shouldn't happen)
+                        roomName: authorizedRoomName || options.roomName,
                         jwt: jwt
                     };
 
                     console.log('[Jitsi] Joining Room:', finalOptions.roomName);
+                    console.log('[Jitsi] Using Script URL:', scriptUrl);
 
+                    // Function to initialize Jitsi
+                    const startJitsi = () => {
+                        // @ts-ignore
+                        if (!window.JitsiMeetExternalAPI) {
+                            console.error('[Jitsi] Library not loaded even after script load.');
+                            return;
+                        }
+                        // @ts-ignore
+                        const apiObj = new window.JitsiMeetExternalAPI(domain, finalOptions);
+                        jitsiApiRef.current = apiObj;
+
+                        apiObj.addEventListener('videoConferenceJoined', (ev: any) => {
+                            console.log('[Jitsi] Joined conference:', ev);
+                            setJitsiLoading(false);
+                        });
+
+                        apiObj.addEventListener('videoConferenceLeft', () => {
+                            console.log('[Jitsi] Conference left');
+                        });
+                    };
+
+                    // Check if script is already loaded
                     // @ts-ignore
-                    const apiObj = new window.JitsiMeetExternalAPI(domain, finalOptions);
-                    jitsiApiRef.current = apiObj;
-
-                    apiObj.addEventListener('videoConferenceJoined', (ev: any) => {
-                        console.log('[Jitsi] Joined conference:', ev);
-                        setJitsiLoading(false);
-                    });
-
-                    apiObj.addEventListener('videoConferenceLeft', () => {
-                        console.log('[Jitsi] Conference left');
-                    });
+                    if (window.JitsiMeetExternalAPI) {
+                        startJitsi();
+                    } else {
+                        // Load the script dynamically using the URL from backend
+                        console.log('[Jitsi] Loading external_api.js...');
+                        const s = document.createElement('script');
+                        s.src = scriptUrl;
+                        s.async = true;
+                        s.onload = () => {
+                            console.log('[Jitsi] Script loaded.');
+                            startJitsi();
+                        };
+                        s.onerror = (e) => {
+                            console.error('[Jitsi] Failed to load Jitsi script:', e);
+                            alert('Failed to load video library.');
+                        };
+                        document.head.appendChild(s);
+                    }
                 })
                 .catch(err => {
                     console.error('[Jitsi] Failed to get token:', err);
@@ -240,7 +257,7 @@ export default function SessionPage({ params }: SessionProps) {
             } catch (e) { }
         };
 
-    }, [hasJoined, meetReady, sessionId]);
+    }, [hasJoined, sessionId]);
 
     // Show loading while auth is initializing
     if (authLoading) {

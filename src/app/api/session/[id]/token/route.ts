@@ -99,9 +99,12 @@ export async function GET(
         const isJaaS = JITSI_APP_ID.startsWith('vpaas-magic-cookie');
 
         let roomName = `K12Session${sessionId.replace(/-/g, '').slice(0, 16)}`;
+        let scriptUrl = 'https://meet.jit.si/external_api.js';
+
         if (isJaaS) {
             roomName = `${JITSI_APP_ID}/${roomName}`;
-            console.log('[Jitsi Token] JaaS detected. Added Tenant Prefix to Room Name.');
+            scriptUrl = `https://8x8.vc/${JITSI_APP_ID}/external_api.js`;
+            console.log('[Jitsi Token] JaaS detected. Added Tenant Prefix to Room Name and using JaaS Script URL.');
         }
 
         const jitsiUser = {
@@ -117,7 +120,8 @@ export async function GET(
 
         return NextResponse.json({
             token: jitsiToken,
-            roomName: roomName, // Send to frontend
+            roomName: roomName,
+            scriptUrl: scriptUrl, // Send to frontend so it loads the correct library
             debug: { isModerator, tutorId, userId, match: isModerator, roomName }
         });
 
