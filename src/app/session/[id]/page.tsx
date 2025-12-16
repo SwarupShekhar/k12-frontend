@@ -192,22 +192,27 @@ export default function SessionPage({ params }: SessionProps) {
                 .then(res => {
                     // DEBUG LOGGING
                     console.log('[Jitsi] Token API Response:', res.data);
-                    if (res.data.debug) {
-                        console.log('[Jitsi] Token Debug Info:', res.data.debug);
-                    }
 
                     const jwt = res.data.token;
+                    const authorizedRoomName = res.data.roomName; // Use the room name signed by the backend
+
                     if (!jwt) {
                         console.warn('[Jitsi] No token received.');
                         alert('Authentication failed. Please try again.');
                         return;
                     }
 
-                    // @ts-ignore
-                    const apiObj = new window.JitsiMeetExternalAPI(domain, {
+                    // Update options with the correct room name from the backend
+                    const finalOptions = {
                         ...options,
+                        roomName: authorizedRoomName || options.roomName, // Fallback to local logic if missing (shouldn't happen)
                         jwt: jwt
-                    });
+                    };
+
+                    console.log('[Jitsi] Joining Room:', finalOptions.roomName);
+
+                    // @ts-ignore
+                    const apiObj = new window.JitsiMeetExternalAPI(domain, finalOptions);
                     jitsiApiRef.current = apiObj;
 
                     apiObj.addEventListener('videoConferenceJoined', (ev: any) => {
