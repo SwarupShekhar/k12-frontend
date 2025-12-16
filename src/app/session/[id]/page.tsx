@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/app/context/AuthContext';
 import SessionChat from '@/app/components/SessionChat';
 import api from '@/app/lib/api';
+import DailyIframe from '@daily-co/daily-react';
 
 interface BookingDetails {
     id: string;
@@ -31,43 +32,22 @@ export default function SessionPage({ params }: SessionProps) {
         }
     }, [user, authLoading, router]);
 
-    const jitsiRef = useRef<HTMLDivElement | null>(null);
-    const jitsiApiRef = useRef<any>(null);
-    const [hasJoined, setHasJoined] = useState(false); // New state for Join Overlay
-    const [meetReady, setMeetReady] = useState(false);
-    const [jitsiLoading, setJitsiLoading] = useState(true);
-    // const [isWhiteboardMode, setIsWhiteboardMode] = useState(false); // Removed
+    // Daily.co State
+    const [hasJoined, setHasJoined] = useState(false);
+    const [dailyRoomUrl, setDailyRoomUrl] = useState<string | null>(null);
+    const [dailyToken, setDailyToken] = useState<string | null>(null);
+    const [videoLoading, setVideoLoading] = useState(false);
     const [booking, setBooking] = useState<BookingDetails | null>(null);
 
-    // Fetch Booking Details
-    useEffect(() => {
-        if (sessionId) {
-            api.get(`/bookings/${sessionId}`)
-                .then(res => {
-                    console.log('[Session] Booking details loaded:', res.data);
-                    setBooking(res.data);
-                })
-                .catch(err => {
-                    console.error("Failed to load session details", err);
-                    console.error("Error details:", err.response?.data);
-                    // Continue anyway - Jitsi will still work
-                });
-        }
-    }, [sessionId]);
-
-    // Excalidraw API & Collab
-    const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
-    const [ExcalidrawComp, setExcalidrawComp] = useState<any>(null);
-
-    // Draggable Video State
-    const [position, setPosition] = useState({ x: 0, y: 0 });
+    // Video Card State
+    const [position, setPosition] = useState({ x: 20, y: 20 });
     const [isExpanded, setIsExpanded] = useState(false);
     const isDragging = useRef(false);
     const dragStart = useRef({ x: 0, y: 0 });
     const startPos = useRef({ x: 0, y: 0 });
 
+    // Draggable handlers
     const handleMouseDown = (e: React.MouseEvent) => {
-        // Prevent default to avoid text selection etc
         e.preventDefault();
         isDragging.current = true;
         dragStart.current = { x: e.clientX, y: e.clientY };
@@ -93,417 +73,296 @@ export default function SessionPage({ params }: SessionProps) {
         document.removeEventListener('mouseup', handleMouseUp);
     };
 
+    // Fetch Booking Details
+    useEffect(() => {
+        if (sessionId) {
+            api.get(`/bookings/${sessionId}`)
+                .then(res => {
+                    console.log('[Session] Booking details loaded:', res.data);
+                    setBooking(res.data);
+                })
+                .catch(err => {
+                    console.error(\"Failed to load session details\", err);
+                    console.error(\"Error details:\", err.response?.data);
+                });
+        }
+    }, [sessionId]);
+
+    // Excalidraw State
+    const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
+    const [ExcalidrawComp, setExcalidrawComp] = useState<any>(null);
+
     useEffect(() => {
         import('@excalidraw/excalidraw').then((mod) => setExcalidrawComp(() => mod.Excalidraw));
     }, []);
 
     // Yjs Collaboration Logic
     useEffect(() => {
-        if (!excalidrawAPI || !sessionId) return;
+        if (!excalidrawAPI) return;
 
-        let cleanup: (() => void) | undefined;
-
-        (async () => {
-            try {
-                const Y = await import('yjs');
-                const { WebsocketProvider } = await import('y-websocket');
-                const ydoc = new Y.Doc();
-
-                // Use environment variable or local-only mode
-                const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-
-                if (!wsUrl) {
-                    console.log('[Collab] No WS_URL defined. Running in offline/local-only mode.');
-                    return; // Don't try to connect to localhost in production
-                }
-
-                // Remove spaces from room name
-                const roomName = `k12-session-${sessionId}`;
-
-                console.log('[Collab] Connecting to:', wsUrl, 'Room:', roomName);
-                const provider = new WebsocketProvider(wsUrl, roomName, ydoc);
-
-                provider.on('status', (event: any) => {
-                    console.log('[Collab] WS Status:', event.status);
-                });
-
-                provider.on('connection-error', (error: any) => {
-                    console.warn('[Collab] Connection error (whiteboard will work locally):', error);
-                });
-
-                cleanup = () => {
-                    provider.disconnect();
-                    ydoc.destroy();
-                };
-            } catch (error) {
-                console.warn('[Collab] Failed to initialize (whiteboard will work locally):', error);
-            }
-        })();
-
-        return () => {
-            if (cleanup) cleanup();
-        };
-    }, [excalidrawAPI, sessionId]);
-
-    // Use refs for stable access inside effect without triggering re-runs
-    const userRef = useRef(user);
-    const bookingRef = useRef(booking);
-
-    // Update refs when data changes
-    useEffect(() => {
-        userRef.current = user;
-        bookingRef.current = booking;
-    }, [user, booking]);
-
-    // Initialize Jitsi ONLY after user clicks "Join"
-    useEffect(() => {
-        // Only init if user has joined
-        // @ts-ignore
-        if (!hasJoined || !jitsiRef.current) return;
-
-        // Cleanup previous instance if any
-        if (jitsiApiRef.current) {
-            try { jitsiApiRef.current.dispose(); } catch (e) { }
-            jitsiApiRef.current.dispose();
-            jitsiApiRef.current = null;
+        const WS_URL = process.env.NEXT_PUBLIC_WS_URL;
+        if (!WS_URL) {
+            console.warn('[Collab] No WS_URL defined. Running in offline/local-only mode.');
+            return;
         }
 
-        const domain = process.env.NEXT_PUBLIC_JITSI_DOMAIN || 'meet.jit.si';
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://k-12-backend.onrender.com';
+        let yDoc: any;
+        let yProvider: any;
 
-        const options = {
-            roomName: `K12Session${sessionId.replace(/-/g, '').slice(0, 16)}`,
-            width: '100%',
-            height: '100%',
-            parentNode: jitsiRef.current,
-            userInfo: {
-                displayName: user?.name,
-                email: user?.email
-            },
-            configOverwrite: {
-                startWithAudioMuted: true,
-                startWithVideoMuted: true,
-                prejoinPageEnabled: false,
-                // CRITICAL: Disable lobby/waiting room for public Jitsi
-                enableLobbyChat: false,
-                disableModeratorIndicator: false,
-                // Allow anyone to join without waiting
-                requireDisplayName: false,
-                enableWelcomePage: false,
-                // Disable authentication requirements
-                enableUserRolesBasedOnToken: false
-            },
-            interfaceConfigOverwrite: {
-                TOOLBAR_BUTTONS: [
-                    'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-                    'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
-                    'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
-                    'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
-                    'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
-                    'security'
-                ],
-            }
-        };
+        import('yjs').then((Y) => {
+            return import('y-websocket').then((YWebsocket) => {
+                yDoc = new Y.Doc();
+                yProvider = new YWebsocket.WebsocketProvider(WS_URL, `session-${sessionId}`, yDoc);
 
-        setJitsiLoading(true);
+                const yElements = yDoc.getArray('elements');
+                const yAppState = yDoc.getMap('appState');
 
-        // Fetch JWT Token via Next.js Proxy (which handles Backend Fallback)
-        const token = localStorage.getItem('K12_TOKEN');
-        import('axios').then(axios => {
-            console.log(`[Jitsi] Fetching token via Proxy: /api/session/${sessionId}/token`);
-
-            axios.default.get(`/api/session/${sessionId}/token`, {
-                headers: { Authorization: `Bearer ${token}` }
-            })
-                .then(res => {
-                    // DEBUG LOGGING
-                    console.log('[Jitsi] Token API Response:', res.data);
-
-                    const jwt = res.data.token;
-                    const authorizedRoomName = res.data.roomName;
-
-                    // Use scriptUrl from response (Proxy handles logic) or fallback
-                    const scriptUrl = res.data.scriptUrl || 'https://meet.jit.si/external_api.js';
-
-                    if (!jwt) {
-                        console.warn('[Jitsi] No token received from backend.');
-                        alert('Authentication failed. Please try again.');
-                        setJitsiLoading(false);
-                        return;
-                    }
-
-                    // Update options with the correct room name from the backend
-                    const finalOptions: any = {
-                        ...options,
-                        roomName: authorizedRoomName || options.roomName
-                    };
-
-                    // Only add JWT if NOT using public Jitsi (which doesn't support it properly)
-                    const isPublicJitsi = domain === 'meet.jit.si';
-                    if (!isPublicJitsi && jwt) {
-                        finalOptions.jwt = jwt;
-                        console.log('[Jitsi] Using JWT authentication');
-                    } else {
-                        console.log('[Jitsi] Skipping JWT (public Jitsi or no token)');
-                    }
-
-                    console.log('[Jitsi] Joining Room:', finalOptions.roomName);
-                    console.log('[Jitsi] Using Script URL:', scriptUrl);
-
-                    // Function to initialize Jitsi
-                    const startJitsi = () => {
-                        // @ts-ignore
-                        if (!window.JitsiMeetExternalAPI) {
-                            console.error('[Jitsi] Library not loaded even after script load.');
-                            setJitsiLoading(false);
-                            return;
+                yProvider.on('sync', (isSynced: boolean) => {
+                    if (isSynced) {
+                        console.log('[Collab] Synced with server');
+                        const remoteElements = yElements.toArray();
+                        if (remoteElements.length > 0) {
+                            excalidrawAPI.updateScene({ elements: remoteElements });
                         }
-                        // @ts-ignore
-                        const apiObj = new window.JitsiMeetExternalAPI(domain, finalOptions);
-                        jitsiApiRef.current = apiObj;
-
-                        apiObj.addEventListener('videoConferenceJoined', (ev: any) => {
-                            console.log('[Jitsi] Joined conference:', ev);
-                            setJitsiLoading(false);
-                        });
-
-                        apiObj.addEventListener('videoConferenceLeft', () => {
-                            console.log('[Jitsi] Conference left');
-                        });
-                    };
-
-                    // Check if script is already loaded
-                    // @ts-ignore
-                    if (window.JitsiMeetExternalAPI) {
-                        startJitsi();
-                    } else {
-                        // Load the script dynamically using the URL from backend
-                        console.log('[Jitsi] Loading external_api.js...');
-                        const s = document.createElement('script');
-                        s.src = scriptUrl;
-                        s.async = true;
-                        s.onload = () => {
-                            console.log('[Jitsi] Script loaded.');
-                            startJitsi();
-                        };
-                        s.onerror = (e) => {
-                            console.error('[Jitsi] Failed to load Jitsi script:', e);
-                            alert('Failed to load video library.');
-                            setJitsiLoading(false);
-                        };
-                        document.head.appendChild(s);
                     }
-                })
-                .catch(err => {
-                    console.error('[Jitsi] Failed to get token:', err);
-                    alert('Failed to initialize secure session.');
-                    setJitsiLoading(false);
                 });
+
+                excalidrawAPI.onChange((elements: any[], appState: any) => {
+                    yDoc.transact(() => {
+                        yElements.delete(0, yElements.length);
+                        yElements.push(elements);
+                        Object.keys(appState).forEach((key) => {
+                            yAppState.set(key, appState[key]);
+                        });
+                    });
+                });
+
+                return () => {
+                    yProvider?.destroy();
+                    yDoc?.destroy();
+                };
+            });
+        }).catch(err => {
+            console.error('[Collab] Failed to load Yjs:', err);
         });
 
         return () => {
-            // Remove listeners to prevent memory leaks and unwanted triggers during unmount
-            try {
-                if (jitsiApiRef.current) {
-                    jitsiApiRef.current.dispose();
-                    jitsiApiRef.current = null;
-                }
-            } catch (e) { }
+            yProvider?.destroy();
+            yDoc?.destroy();
         };
+    }, [excalidrawAPI, sessionId]);
 
+    // Fetch Daily.co Room & Token when user joins
+    useEffect(() => {
+        if (hasJoined && sessionId) {
+            setVideoLoading(true);
+            const token = localStorage.getItem('K12_TOKEN');
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://k-12-backend.onrender.com';
+
+            console.log('[Daily] Fetching room and token...');
+
+            api.get(`/sessions/${sessionId}/daily-token`, {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+                .then(res => {
+                    console.log('[Daily] Token received:', res.data);
+                    setDailyRoomUrl(res.data.roomUrl);
+                    setDailyToken(res.data.token);
+                    setVideoLoading(false);
+                })
+                .catch(err => {
+                    console.error('[Daily] Failed to get token:', err);
+                    alert('Failed to join video session. Please try again.');
+                    setVideoLoading(false);
+                });
+        }
     }, [hasJoined, sessionId]);
 
-    // Show loading while auth is initializing
     if (authLoading) {
         return (
-            <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center">
-                <div className="text-[var(--color-text-primary)]">Loading...</div>
-            </div>
+            <div className=\"min-h-screen flex items-center justify-center bg-[var(--color-background)]\">
+                < div className =\"text-center\">
+                    < div className =\"w-16 h-16 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4\"></div>
+                        < p className =\"text-[var(--color-text-secondary)]\">Loading session...</p>
+                </div >
+            </div >
         );
     }
 
-    // Render JOIN OVERLAY if not joined
-    if (!hasJoined) {
-        return (
-            <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center p-4">
-                <div className="bg-glass p-8 rounded-[2rem] border border-white/20 shadow-2xl max-w-md w-full text-center relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2" />
-
-                    <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <span className="text-4xl">🎓</span>
-                    </div>
-
-                    <h1 className="text-2xl font-bold text-[var(--color-text-primary)] mb-2">
-                        {booking?.subject?.name || 'Tutoring Session'}
-                    </h1>
-                    {booking?.start_time && (
-                        <p className="text-[var(--color-primary)] font-bold mb-4">
-                            {new Date(booking.start_time).toLocaleString()}
-                        </p>
-                    )}
-                    <p className="text-[var(--color-text-secondary)] mb-8">
-                        {user?.role === 'student'
-                            ? "Waiting for your tutor to start the class."
-                            : "Ready to start teaching?"}
-                    </p>
-
-                    <button
-                        onClick={() => setHasJoined(true)}
-                        className="w-full py-4 rounded-xl bg-[var(--color-primary)] text-white font-bold text-lg shadow-lg shadow-blue-500/25 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                    >
-                        <span>Join Session Now</span>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
-                    </button>
-
-                    <button
-                        onClick={() => router.back()}
-                        className="mt-4 text-sm text-[var(--color-text-secondary)] hover:underline"
-                    >
-                        Go back
-                    </button>
-                </div>
-            </div>
-        );
+    if (!user) {
+        return null;
     }
 
     return (
-        <div className="h-screen w-screen overflow-hidden bg-[var(--color-background)] relative">
+        <div className=\"relative w-screen h-screen overflow-hidden bg-[var(--color-background)]\">
+    {/* JOIN OVERLAY */ }
+    {
+        !hasJoined && (
+            <div className=\"absolute inset-0 z-50 bg-gradient-to-br from-purple-900/95 via-indigo-900/95 to-blue-900/95 backdrop-blur-md flex items-center justify-center\">
+                < div className =\"text-center max-w-md px-6\">
+                    < div className =\"mb-8\">
+                        < div className =\"w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-sm border border-white/20\">
+                            < span className =\"text-4xl\">🎓</span>
+                            </div >
+            <h1 className=\"text-3xl font-bold text-white mb-2\">
+        { booking?.subject?.name || 'Tutoring Session' }
+                            </h1 >
+            <p className=\"text-white/70\">
+                                Ready to start your session ?
+                            </p >
+                        </div >
 
-            {/* 1. BACKGROUND LAYER: WHITEBOARD */}
-            <div className="absolute inset-0 z-0">
-                {ExcalidrawComp ? (
-                    <ExcalidrawComp
-                        theme="light"
-                        excalidrawAPI={(api: any) => setExcalidrawAPI(api)}
-                        initialData={{
-                            elements: [],
-                            appState: {
-                                viewBackgroundColor: '#ffffff',
-                                currentItemFontFamily: 1,
-                                showWelcomeScreen: false
-                            },
-                            scrollToContent: true
-                        }}
-                        UIOptions={{
-                            canvasActions: {
-                                loadScene: false,
-                                saveToActiveFile: false,
-                                export: { saveFileToDisk: true },
-                                saveAsImage: true,
-                                toggleTheme: false
-                            }
-                        }}
-                    />
-                ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-[var(--color-text-secondary)] bg-gray-50">
-                        <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4" />
-                        <p className="font-medium">Loading Canvas...</p>
-                    </div>
-                )}
-            </div>
-
-            {/* JITSI VIDEO FEED OVERLAY */}
-            {hasJoined && (
-                <div
-                    className="fixed z-50 bg-glass rounded-2xl border border-white/20 shadow-2xl overflow-hidden"
-                    style={{
-                        left: `${position.x}px`,
-                        top: `${position.y}px`,
-                        width: isExpanded ? '80vw' : '400px',
-                        height: isExpanded ? '80vh' : '300px',
-                        transition: 'width 0.3s, height 0.3s'
-                    }}
-                >
-                    {/* Drag Handle */}
-                    <div
-                        onMouseDown={handleMouseDown}
-                        className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-r from-purple-600/80 to-indigo-600/80 cursor-move flex items-center justify-between px-3"
+            <button
+                onClick={() => setHasJoined(true)}
+                className=\"w-full py-4 px-8 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold rounded-2xl shadow-2xl shadow-green-500/25 transition-all transform hover:scale-105 active:scale-95\"
                     >
-                        <span className="text-white text-xs font-bold">📹 Live Session</span>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setIsExpanded(!isExpanded)}
-                                className="text-white hover:bg-white/20 rounded px-2 py-1 text-xs transition-colors"
-                                title={isExpanded ? "Minimize" : "Expand"}
+                            🚀 Join Session
+                        </button >
+
+            <p className=\"text-white/50 text-sm mt-4\">
+                            Session ID: { sessionId.slice(0, 8) }...
+                        </p >
+                    </div >
+                </div >
+            )
+    }
+
+    {/* 1. BASE LAYER: EXCALIDRAW WHITEBOARD */ }
+    <div className=\"absolute inset-0 z-0\">
+    {
+        ExcalidrawComp ? (
+            <ExcalidrawComp
+                excalidrawAPI={(api: any) => setExcalidrawAPI(api)}
+                initialData={{
+                    appState: {
+                        viewBackgroundColor: '#ffffff',
+                        currentItemFontFamily: 1,
+                        currentItemStrokeColor: '#1e1e1e',
+                        currentItemBackgroundColor: 'transparent',
+                        currentItemFillStyle: 'solid',
+                        currentItemStrokeWidth: 2,
+                        currentItemRoughness: 0,
+                        currentItemOpacity: 100,
+                        gridSize: null,
+                        zenModeEnabled: false,
+                        theme: 'light'
+                    },
+                    scrollToContent: true
+                }}
+                UIOptions={{
+                    canvasActions: {
+                        loadScene: false,
+                        saveToActiveFile: false,
+                        export: { saveFileToDisk: true },
+                        saveAsImage: true,
+                        toggleTheme: false
+                    }
+                }}
+            />
+        ) : (
+            <div className=\"flex flex-col items-center justify-center h-full text-[var(--color-text-secondary)] bg-gray-50\">
+                < div className =\"w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4\" />
+                    < p className =\"font-medium\">Loading Canvas...</p>
+                    </div >
+                )
+    }
+            </div >
+
+        {/* DAILY.CO VIDEO OVERLAY */ }
+    {
+        hasJoined && dailyRoomUrl && dailyToken && (
+            <div
+                className=\"fixed z-50 bg-black rounded-2xl border-2 border-purple-500/50 shadow-2xl overflow-hidden\"
+        style = {{
+            left: `${position.x}px`,
+                top: `${position.y}px`,
+                    width: isExpanded ? '80vw' : '400px',
+                        height: isExpanded ? '80vh' : '300px',
+                            transition: 'width 0.3s, height 0.3s'
+        }
+    }
+                >
+        {/* Drag Handle */ }
+        < div
+    onMouseDown = { handleMouseDown }
+    className =\"absolute top-0 left-0 right-0 h-10 bg-gradient-to-r from-purple-600 to-indigo-600 cursor-move flex items-center justify-between px-4 z-10\"
+        >
+        <span className=\"text-white text-sm font-bold\">📹 Live Session</span>
+            < div className =\"flex gap-2\">
+                < button
+    onClick = {() => setIsExpanded(!isExpanded)
+}
+className =\"text-white hover:bg-white/20 rounded px-3 py-1 text-sm transition-colors\"
+title = {
+    isExpanded?\"Minimize\" : \"Expand\"}
                             >
-                                {isExpanded ? '🗕' : '🗖'}
+        { isExpanded? '🗕': '🗖' }
                             </button>
-                        </div>
-                    </div>
+                        </div >
+                    </div >
 
-                    {/* Jitsi Container */}
-                    <div ref={jitsiRef} className="w-full h-full pt-8" />
-
-                    {/* Loading Overlay */}
-                    {jitsiLoading && (
-                        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                            <div className="text-white text-center">
-                                <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent mx-auto mb-4"></div>
-                                <p className="font-bold">Connecting to session...</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
+    {/* Daily.co Iframe */ }
+    < DailyIframe
+url = { dailyRoomUrl }
+token = { dailyToken }
+showLeaveButton = { true}
+showFullscreenButton = { true}
+iframeStyle = {{
+    width: '100%',
+        height: '100%',
+            border: 'none'
+}}
+                    />
+                </div >
             )}
-            {/* 2. OVERLAY LAYER: FLOATING HEADER */}
-            <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-start pointer-events-none">
-                {/* Header Card */}
-                <div className="bg-glass/90 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-lg pointer-events-auto flex items-center gap-4 max-w-sm">
-                    <div className="relative">
-                        <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse relative z-10" />
-                        <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75" />
-                    </div>
+
+{/* Loading Overlay for Video */ }
+{
+    hasJoined && videoLoading && (
+        <div className=\"fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center\">
+            < div className =\"text-white text-center\">
+                < div className =\"animate-spin rounded-full h-16 w-16 border-4 border-white border-t-transparent mx-auto mb-4\"></div>
+                    < p className =\"font-bold text-lg\">Connecting to video session...</p>
+                    </div >
+                </div >
+            )
+}
+
+{/* 2. OVERLAY LAYER: FLOATING HEADER */ }
+<div className=\"absolute top-4 left-4 right-4 z-10 flex justify-between items-start pointer-events-none\">
+{/* Header Card */ }
+<div className=\"bg-glass/90 backdrop-blur-md rounded-2xl p-3 border border-white/20 shadow-lg pointer-events-auto flex items-center gap-4 max-w-sm\">
+    < div className =\"relative\">
+        < div className =\"w-3 h-3 rounded-full bg-green-500 animate-pulse relative z-10\" />
+            < div className =\"absolute inset-0 bg-green-500 rounded-full animate-ping opacity-75\" />
+                    </div >
                     <div>
-                        <h1 className="text-sm font-bold text-[var(--color-text-primary)]">
+                        <h1 className=\"text-sm font-bold text-[var(--color-text-primary)]\">
                             {booking?.subject?.name || 'Session'}
                         </h1>
-                        <p className="text-xs text-[var(--color-text-secondary)]">
-                            ID: {sessionId.slice(0, 8)}...
-                        </p>
-                    </div>
-                </div>
+                        <p className=\"text-xs text-[var(--color-text-secondary)]\">
+ID: { sessionId.slice(0, 8) }...
+                        </p >
+                    </div >
+                </div >
 
-                {/* End Session Button */}
-                <button
-                    onClick={() => {
-                        if (user?.role === 'tutor') router.push('/tutor/dashboard');
-                        else if (user?.role === 'parent') router.push('/parent/dashboard');
-                        else router.push('/students/dashboard');
-                    }}
-                    className="pointer-events-auto px-4 py-2 rounded-xl bg-red-500 text-white text-sm font-bold shadow-lg hover:bg-red-600 hover:scale-105 transition-all flex items-center gap-2"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    End
-                </button>
-            </div>
+    {/* End Session Button */ }
+    < button
+onClick = {() => {
+    if (user?.role === 'tutor') router.push('/tutor/dashboard');
+    else if (user?.role === 'parent') router.push('/parent/dashboard');
+    else router.push('/students/dashboard');
+}}
+className =\"bg-red-500/90 hover:bg-red-600 backdrop-blur-md text-white px-4 py-2 rounded-xl font-bold shadow-lg pointer-events-auto transition-all\"
+    >
+                    🚪 End Session
+                </button >
+            </div >
 
-            {/* 3. OVERLAY LAYER: FLOATING VIDEO (JITSI) */}
-            <div
-                className="absolute bottom-6 left-6 z-20 w-[300px] h-[200px] md:w-[400px] md:h-[250px] transition-transform hover:shadow-2xl"
-                style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
-            >
-                <div className="w-full h-full rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/20 ring-1 ring-black/10 relative group">
-
-                    {/* Access to Jitsi Container */}
-                    <div ref={jitsiRef} className="w-full h-full" />
-
-                    {/* Draggable Handle Overlay */}
-                    <div
-                        onMouseDown={handleMouseDown}
-                        className="absolute top-0 left-0 w-full h-12 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity cursor-move flex items-start pt-2 pl-3 z-30"
-                    >
-                        <div className="flex items-center gap-1.5 text-white/90 bg-black/40 px-2 py-1 rounded-md backdrop-blur-sm border border-white/10">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                            </svg>
-                            <span className="text-xs font-semibold tracking-wide">Drag to move</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* 4. OVERLAY LAYER: CHAT (Existing FAB) */}
-            <SessionChat />
-        </div>
+    {/* 3. OVERLAY LAYER: CHAT SIDEBAR */ }
+    < div className =\"absolute right-4 top-20 bottom-4 z-10 w-80 pointer-events-auto\">
+        < SessionChat sessionId = { sessionId } currentUser = { user } />
+            </div >
+        </div >
     );
 }

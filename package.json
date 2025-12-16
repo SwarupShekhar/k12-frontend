@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@daily-co/daily-react": "^0.24.0",
     "@excalidraw/excalidraw": "^0.18.0",
     "@hookform/resolvers": "^5.2.2",
     "@sentry/nextjs": "^10.30.0",
