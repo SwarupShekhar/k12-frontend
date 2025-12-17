@@ -24,6 +24,18 @@ export default function BlogManagementSection() {
         }
     };
 
+    // Safe formatting helper to prevent crashes
+    const safeFormatDate = (dateString: string | undefined | null) => {
+        if (!dateString) return '—';
+        try {
+            const d = new Date(dateString);
+            if (isNaN(d.getTime())) return 'Invalid Date';
+            return format(d, 'MMM d, yyyy');
+        } catch {
+            return 'Invalid Date';
+        }
+    };
+
     useEffect(() => {
         fetchBlogs();
     }, [page]);
@@ -115,12 +127,12 @@ export default function BlogManagementSection() {
                                         </span>
                                     </td>
                                     <td className="py-4 px-4 text-sm text-[var(--color-text-secondary)]">
-                                        {format(new Date(blog.createdAt), 'MMM d, yyyy')}
+                                        {safeFormatDate(blog.createdAt)}
                                     </td>
                                     <td className="py-4 px-4">
                                         <span className={`text-xs font-bold uppercase px-2 py-1 rounded-full ${blog.status === 'PUBLISHED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                                                blog.status === 'REJECTED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
-                                                    'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                            blog.status === 'REJECTED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
                                             }`}>
                                             {blog.status}
                                         </span>

@@ -31,8 +31,8 @@ export function useTutorDashboard() {
 
     // Helper function to extract date from booking
     const getBookingDate = (booking: any): Date | null => {
-        // Try multiple possible date fields
-        const dateValue = booking.start_time || booking.requested_start || booking.date || booking.created_at;
+        // Prioritize actual scheduled times. Avoid created_at as it doesn't represent the session time.
+        const dateValue = booking.start_time || booking.requested_start || booking.date;
         if (!dateValue) return null;
 
         try {
@@ -42,51 +42,55 @@ export function useTutorDashboard() {
         }
     };
 
-    // Get today's date range (start and end of day in local time)
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    // Normalize "today" to verify calendar date match
+    const todayString = now.toDateString();
 
-    console.log('[useTutorDashboard] Today range:', { todayStart, todayEnd });
+    console.log('[useTutorDashboard] Today:', todayString);
     console.log('[useTutorDashboard] All bookings:', bookings);
 
     const todaySessions = bookings?.filter((b: any) => {
         const bookingDate = getBookingDate(b);
         if (!bookingDate) {
-            console.log('[useTutorDashboard] Booking has no valid date:', b);
             return false;
         }
 
-        const isToday = bookingDate >= todayStart && bookingDate <= todayEnd;
+        // STRICT CHECK: Matches today's calendar date
+        const isSameCalendarDay = bookingDate.toDateString() === todayString;
 
-        // STRICT FILTER: Hide sessions that have already ended
-        const now = new Date();
+        // STRICT FILTER: Session must not have ended
         const endStr = b.end_time || b.requested_end;
         // If end time is missing, assume 1 hour duration from start
         const sessionEnd = endStr
             ? new Date(endStr)
             : new Date(bookingDate.getTime() + 60 * 60 * 1000);
 
+        // Use a small buffer (e.g. 5 mins) to allow wrapping up? Or strict now? User asked for strict expiry.
+        // If sessionEnd < now, it's expired.
         const hasNotEnded = sessionEnd > now;
 
-        console.log('[useTutorDashboard] Checking booking:', {
+        console.log('[useTutorDashboard] Booking:', {
             id: b.id,
-            date: bookingDate,
-            sessionEnd,
-            isToday,
+            date: bookingDate.toDateString(),
+            isSameCalendarDay,
             hasNotEnded,
-            subject: b.subject_name || b.subject?.name
+            subject: b.subject_name
         });
 
-        return isToday && hasNotEnded;
+        return isSameCalendarDay && hasNotEnded;
     }) || [];
 
     const upcomingBookings = bookings?.filter((b: any) => {
         const bookingDate = getBookingDate(b);
         if (!bookingDate) return false;
 
-        // Upcoming = future dates (not today)
-        return bookingDate > todayEnd;
+        // Upcoming = Future dates (tomorrow onwards)
+        // logic: bookingDate > end of today?
+        // Simpler: bookingDate is in the future AND NOT today
+        const isFuture = bookingDate > now;
+        const isNotToday = bookingDate.toDateString() !== todayString;
+
+        return isFuture && isNotToday;
     }) || [];
 
     console.log('[useTutorDashboard] Filtered results:', {
