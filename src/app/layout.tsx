@@ -8,8 +8,8 @@ import Footer from './components/Footer';
 import Script from 'next/script';
 
 export const metadata = {
-  title: 'K12 Frontend',
-  description: 'K12 Tutoring Platform',
+  title: 'Vaidik Tutoring',
+  description: 'Vaidik Tutoring Platform',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

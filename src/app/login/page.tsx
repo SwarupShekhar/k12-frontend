@@ -102,7 +102,7 @@ export default function LoginPage() {
 
             <div className="text-center">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                New to K12?{' '}
+                New to Vaidik Tutoring?{' '}
                 <a href="/signup" className="font-bold text-[var(--color-primary)] hover:underline hover:text-blue-500 transition-colors">
                   Create an account
                 </a>

@@ -20,10 +20,10 @@ export default function Navbar() {
         {/* Left: Logo */}
         <Link href="/" className="flex items-center gap-3 group">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-secondary)] flex items-center justify-center text-white font-bold shadow-md group-hover:scale-105 transition-transform">
-            K12
+            VT
           </div>
           <div className="text-xl font-bold tracking-tight text-[var(--color-text-primary)]">
-            K12 Tutoring
+            Vaidik Tutoring
           </div>
         </Link>
 

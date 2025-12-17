@@ -9,7 +9,7 @@ export default function PrivacyPage() {
 
                 <section className="space-y-4">
                     <h2 className="text-2xl font-semibold">1. Introduction</h2>
-                    <p>Welcome to K12 Tutoring. We value your privacy and are committed to protecting your personal data.</p>
+                    <p>Welcome to Vaidik Tutoring. We value your privacy and are committed to protecting your personal data.</p>
                 </section>
 
                 <section className="space-y-4">
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
 
                 <section className="space-y-4">
                     <h2 className="text-2xl font-semibold">4. Contact Us</h2>
-                    <p>If you have any questions about this Privacy Policy, please contact us at support@k12tutoring.com.</p>
+                    <p>If you have any questions about this Privacy Policy, please contact us at support@vaidiktutoring.com.</p>
                 </section>
             </div>
         </div>

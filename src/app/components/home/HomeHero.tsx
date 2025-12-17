@@ -42,7 +42,7 @@ export default function HomeHero() {
                     </div>
 
                     <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-[var(--color-text-primary)] mb-6 leading-[1.1]">
-                        Personalized K-12 Tutoring That Builds Confidence and Real Results
+                        Personalized Vaidik Tutoring That Builds Confidence and Real Results
                     </h1>
 
                     <p className="text-lg md:text-xl text-[var(--color-text-secondary)] mb-10 max-w-2xl leading-relaxed">

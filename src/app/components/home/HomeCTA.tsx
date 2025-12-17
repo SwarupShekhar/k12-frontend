@@ -38,7 +38,7 @@ export default function HomeCTA() {
                             Give your child the right academic support
                         </h2>
                         <p className="text-lg md:text-xl text-blue-100 mb-10 max-w-2xl mx-auto">
-                            Personalized tutoring. Verified tutors. Measurable improvement.
+                            Personalized Vaidik Tutoring. Verified tutors. Measurable improvement.
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">

@@ -15,7 +15,7 @@ export default function Footer() {
                                 K
                             </div>
                             <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300">
-                                K12 Tutoring
+                                Vaidik Tutoring
                             </span>
                         </div>
                         <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
@@ -59,7 +59,7 @@ export default function Footer() {
 
                 <div className="pt-8 border-t border-gray-200 dark:border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
                     <p className="text-sm text-gray-500 dark:text-gray-500">
-                        &copy; {new Date().getFullYear()} K12 Tutoring. All rights reserved.
+                        &copy; {new Date().getFullYear()} Vaidik Tutoring. All rights reserved.
                     </p>
                     <div className="flex gap-6">
                         {/* Placeholder Social Icons */}

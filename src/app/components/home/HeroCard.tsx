@@ -53,7 +53,7 @@ export default function HeroCard() {
 
                     {/* Headline */}
                     <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-[var(--color-text-primary)] mb-6 leading-[1.15]">
-                        Personalized K-12 Tutoring That Builds Confidence and Real Results
+                        Personalized Vaidik Tutoring That Builds Confidence and Real Results
                     </h1>
 
                     {/* Subtext */}
