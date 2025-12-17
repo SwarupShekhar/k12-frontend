@@ -89,11 +89,26 @@ export default function SessionPage({ params }: SessionProps) {
     }, [sessionId]);
 
     // Excalidraw State
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [excalidrawAPI, setExcalidrawAPI] = useState<any>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [ExcalidrawComp, setExcalidrawComp] = useState<any>(null);
+
+    // Patch for process.env if needed by the library (Fixes "process is not defined" errors)
+    useEffect(() => {
+        if (typeof window !== 'undefined' && !window.process) {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-ignore
+            window.process = { env: { NODE_ENV: process.env.NODE_ENV } };
+        }
+    }, []);
 
     useEffect(() => {
         import('@excalidraw/excalidraw').then((mod) => setExcalidrawComp(() => mod.Excalidraw));
+        // Manually import CSS
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        import('@excalidraw/excalidraw/index.css');
     }, []);
 
     // Yjs Collaboration Logic
@@ -109,8 +124,10 @@ export default function SessionPage({ params }: SessionProps) {
         let yDoc: any;
         let yProvider: any;
 
-        import('yjs').then((Y) => {
-            return import('y-websocket').then((YWebsocket) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        import('yjs').then((Y: any) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return import('y-websocket').then((YWebsocket: any) => {
                 yDoc = new Y.Doc();
                 yProvider = new YWebsocket.WebsocketProvider(WS_URL, `session-${sessionId}`, yDoc);
 
@@ -127,6 +144,7 @@ export default function SessionPage({ params }: SessionProps) {
                     }
                 });
 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 excalidrawAPI.onChange((elements: any[], appState: any) => {
                     yDoc.transact(() => {
                         yElements.delete(0, yElements.length);
@@ -232,22 +250,21 @@ export default function SessionPage({ params }: SessionProps) {
                 {
                     ExcalidrawComp ? (
                         <ExcalidrawComp
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             excalidrawAPI={(api: any) => setExcalidrawAPI(api)}
+                            zenModeEnabled={false}
+                            gridModeEnabled={false}
+                            viewModeEnabled={false}
+                            theme="light"
+                            name="K12 Board"
                             initialData={{
                                 appState: {
                                     viewBackgroundColor: '#ffffff',
                                     currentItemFontFamily: 1,
-                                    currentItemStrokeColor: '#1e1e1e',
-                                    currentItemBackgroundColor: 'transparent',
-                                    currentItemFillStyle: 'solid',
-                                    currentItemStrokeWidth: 2,
-                                    currentItemRoughness: 0,
-                                    currentItemOpacity: 100,
-                                    gridSize: null,
+                                    theme: 'light',
                                     zenModeEnabled: false,
-                                    theme: 'light'
+                                    viewModeEnabled: false,
                                 },
-                                scrollToContent: true
                             }}
                             UIOptions={{
                                 canvasActions: {
