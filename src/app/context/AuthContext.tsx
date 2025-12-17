@@ -137,8 +137,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // 3. Redirect immediately based on role
-        // Keep loading true to maintain the loader state during navigation
-        // setLoading(false);
+        // Add a small artificial delay so the user sees the loader animation (REQ: 2-3 seconds window)
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        setLoading(false); // Unblock the UI so ProtectedClient allows rendering
 
         if (shouldRedirect && userData) {
           if (userData.role === 'parent') {
