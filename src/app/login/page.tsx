@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import useAuth from '../Hooks/useAuth';
 
+import Loader from '../components/Loader';
+
 export default function LoginPage() {
   const { login, loading } = useAuth();
   const [email, setEmail] = useState('');
@@ -23,6 +25,18 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen relative flex items-center justify-center overflow-hidden bg-slate-50 dark:bg-slate-950 py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-300">
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="fixed inset-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300">
+          <div className="flex flex-col items-center">
+            <Loader />
+            <p className="mt-8 text-xl font-bold text-[var(--color-primary)] animate-pulse">
+              Logging you in...
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Animated Blobs Background */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-300/40 dark:bg-purple-900/20 rounded-full mix-blend-multiply dark:mix-blend-overlay filter blur-3xl opacity-30 animate-blob"></div>
@@ -88,15 +102,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="group relative w-full flex justify-center py-4 px-4 border border-transparent text-sm font-bold rounded-xl text-white bg-[var(--color-primary)] hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--color-primary)] disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
               >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Signing in...
-                  </span>
-                ) : 'Sign in'}
+                {loading ? 'Processing...' : 'Sign in'}
               </button>
             </div>
 

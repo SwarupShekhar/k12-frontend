@@ -137,7 +137,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // 3. Redirect immediately based on role
-        setLoading(false); // <--- CRITICAL FIX: Ensure loading is disabled before/during navigation
+        // Keep loading true to maintain the loader state during navigation
+        // setLoading(false);
 
         if (shouldRedirect && userData) {
           if (userData.role === 'parent') {
