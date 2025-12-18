@@ -117,7 +117,8 @@ export default function SessionPage({ params }: SessionProps) {
 
         const WS_URL = process.env.NEXT_PUBLIC_WS_URL;
         if (!WS_URL) {
-            console.warn('[Collab] No WS_URL defined. Running in offline/local-only mode.');
+            console.error('[Collab] CRITICAL: NEXT_PUBLIC_WS_URL is not defined in environment variables.');
+            console.warn('[Collab] Whiteboard sync will NOT work. Please add NEXT_PUBLIC_WS_URL to your Vercel/Render dashboard.');
             return;
         }
 

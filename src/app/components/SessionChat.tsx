@@ -31,13 +31,9 @@ export default function SessionChat() {
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://k-12-backend.onrender.com';
 
-        // Use namespace if specified in backend docs, otherwise root
-        // Note: Guided backend implementation uses namespace: 'encounters'
-        const socketPath = API_URL.endsWith('/') ? API_URL + 'encounters' : API_URL + '/encounters';
+        console.log('[Chat] Connecting to socket at:', API_URL, 'Session:', sessionId);
 
-        console.log('[Chat] Connecting to socket at:', socketPath, 'Session:', sessionId);
-
-        const newSocket = io(socketPath, {
+        const newSocket = io(API_URL, {
             query: {
                 sessionId,
                 userId: user.sub || user.id
