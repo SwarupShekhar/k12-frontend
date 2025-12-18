@@ -59,13 +59,23 @@ export default function useStudentDashboard() {
         const startStr = b.start_time || b.requested_start;
         const endStr = b.end_time || b.requested_end;
 
-        if (!startStr) return false; // Invalid booking
+        const debugId = `[${b.id.substring(0, 4)}...]:`;
+
+        if (!startStr) {
+            console.log(debugId, 'Discarded: No start time');
+            return false;
+        }
 
         // If end time is missing, assume 1 hour duration
         const endTime = endStr ? new Date(endStr) : new Date(new Date(startStr).getTime() + 60 * 60 * 1000);
 
-        const isUpcoming = endTime > now && b.status !== 'cancelled' && b.status !== 'declined';
-        return isUpcoming;
+        const isFuture = endTime > now;
+        const isValidStatus = b.status !== 'cancelled' && b.status !== 'declined';
+
+        if (!isFuture) console.log(debugId, 'Discarded: In past', endTime.toISOString(), '<', now.toISOString());
+        if (!isValidStatus) console.log(debugId, 'Discarded: Status', b.status);
+
+        return isFuture && isValidStatus;
     });
     console.log('StudentDashboard: Upcoming Filtered', upcomingSessions);
 
