@@ -134,18 +134,20 @@ export default function SessionChat() {
 
         try {
             // Ensure sessionId is clean
-            const safeSessionId = sessionId.trim();
-            // The issue in the screenshot shows '...backend.onrende..._b2789add/messages:1'.
-            // This suggests the Axios instance might be appending weirdly or the ID has garbage.
-            // Or maybe the route is just /messages and sessionId is in body?
-            // Let's stick to the /sessions/:id/messages pattern but log carefully.
+            const safeSessionId = sessionId?.trim();
+            if (!safeSessionId) throw new Error("Missing Session ID");
+
+            console.log(`[Chat] Sending message to: /sessions/${safeSessionId}/messages`);
+
             await api.post(`/sessions/${safeSessionId}/messages`, {
                 text,
                 senderName: user?.first_name || 'User',
             });
             console.log('[Chat] Message sent via API');
-        } catch (error) {
-            console.error('[Chat] Failed to send message:', error);
+        } catch (error: any) {
+            console.error('[Chat] Failed to send message:', error.response?.data || error.message || error);
+            // Optionally alert the user too
+            alert(`Failed to send: ${error.response?.data?.message || 'Unknown error'}`);
         }
     };
 
