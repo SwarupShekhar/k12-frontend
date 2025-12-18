@@ -13,6 +13,7 @@ interface BookingDetails {
     subject: { name: string; icon?: string };
     tutor: { first_name: string; last_name: string };
     student: { first_name: string; last_name: string };
+    sessions: { id: string }[];
 }
 
 interface SessionProps {

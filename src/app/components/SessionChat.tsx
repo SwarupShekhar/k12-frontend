@@ -13,10 +13,17 @@ type Message = {
     senderName: string;
 };
 
-export default function SessionChat() {
+interface SessionChatProps {
+    sessionId?: string; // Explicit session ID from booking data
+}
+
+export default function SessionChat({ sessionId: propSessionId }: SessionChatProps) {
     const { user } = useAuthContext();
     const params = useParams();
-    const sessionId = params?.id as string;
+
+    // Use prop if provided, otherwise fallback to params (which might be booking Id)
+    // NOTE: For correct chat, this MUST be the real Session UUID, not booking UUID
+    const sessionId = propSessionId || (params?.id as string);
 
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([]);
