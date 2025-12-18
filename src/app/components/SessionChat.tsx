@@ -133,7 +133,13 @@ export default function SessionChat() {
         setNewMessage('');
 
         try {
-            await api.post(`/sessions/${sessionId}/messages`, {
+            // Ensure sessionId is clean
+            const safeSessionId = sessionId.trim();
+            // The issue in the screenshot shows '...backend.onrende..._b2789add/messages:1'.
+            // This suggests the Axios instance might be appending weirdly or the ID has garbage.
+            // Or maybe the route is just /messages and sessionId is in body?
+            // Let's stick to the /sessions/:id/messages pattern but log carefully.
+            await api.post(`/sessions/${safeSessionId}/messages`, {
                 text,
                 senderName: user?.first_name || 'User',
             });
