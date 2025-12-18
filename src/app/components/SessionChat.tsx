@@ -139,10 +139,15 @@ export default function SessionChat() {
 
             console.log(`[Chat] Sending message to: /sessions/${safeSessionId}/messages`);
 
-            await api.post(`/sessions/${safeSessionId}/messages`, {
+            const payload = {
                 text,
                 senderName: user?.first_name || 'User',
-            });
+                senderId: user?.sub || user?.id,
+                userId: user?.sub || user?.id, // Send both just in case
+                sessionId: safeSessionId
+            };
+
+            await api.post(`/sessions/${safeSessionId}/messages`, payload);
             console.log('[Chat] Message sent via API');
         } catch (error: any) {
             console.error('[Chat] Failed to send message:', error.response?.data || error.message || error);
