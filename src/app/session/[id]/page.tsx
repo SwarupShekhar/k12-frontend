@@ -123,37 +123,60 @@ export default function SessionPage({ params }: SessionProps) {
 
         let yDoc: any;
         let yProvider: any;
+        let isUpdatingFromRemote = false;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         import('yjs').then((Y: any) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             return import('y-websocket').then((YWebsocket: any) => {
                 yDoc = new Y.Doc();
                 yProvider = new YWebsocket.WebsocketProvider(WS_URL, `session-${sessionId}`, yDoc);
 
                 const yElements = yDoc.getArray('elements');
-                const yAppState = yDoc.getMap('appState');
+
+                // SYNC FROM REMOTE
+                yElements.observe(() => {
+                    if (isUpdatingFromRemote) return;
+
+                    console.log('[Collab] Remote change detected');
+                    const elements = yElements.toArray();
+
+                    isUpdatingFromRemote = true;
+                    excalidrawAPI.updateScene({ elements });
+
+                    // Reset flag after a short delay to ensure local onChange doesn't catch our own update
+                    setTimeout(() => {
+                        isUpdatingFromRemote = false;
+                    }, 100);
+                });
+
+                yProvider.on('status', (event: any) => {
+                    console.log(`[Collab] Connection status: ${event.status}`);
+                });
 
                 yProvider.on('sync', (isSynced: boolean) => {
                     if (isSynced) {
                         console.log('[Collab] Synced with server');
                         const remoteElements = yElements.toArray();
                         if (remoteElements.length > 0) {
+                            isUpdatingFromRemote = true;
                             excalidrawAPI.updateScene({ elements: remoteElements });
+                            setTimeout(() => { isUpdatingFromRemote = false; }, 100);
                         }
                     }
                 });
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                excalidrawAPI.onChange((elements: any[], appState: any) => {
-                    yDoc.transact(() => {
-                        yElements.delete(0, yElements.length);
-                        yElements.push(elements);
-                        Object.keys(appState).forEach((key) => {
-                            yAppState.set(key, appState[key]);
+                // BROADCAST LOCAL CHANGES (Only if tutor)
+                if (user?.role === 'tutor') {
+                    excalidrawAPI.onChange((elements: any[]) => {
+                        if (isUpdatingFromRemote) return;
+
+                        yDoc.transact(() => {
+                            // Simple but slightly inefficient sync: replace all elements
+                            // A better way would be using a Map with element IDs, but for now this fixes the visibility issue
+                            yElements.delete(0, yElements.length);
+                            yElements.push(elements);
                         });
                     });
-                });
+                }
 
                 return () => {
                     yProvider?.destroy();
@@ -168,7 +191,7 @@ export default function SessionPage({ params }: SessionProps) {
             yProvider?.destroy();
             yDoc?.destroy();
         };
-    }, [excalidrawAPI, sessionId]);
+    }, [excalidrawAPI, sessionId, user?.role]);
 
     // Fetch Daily.co Room & Token when user joins
     useEffect(() => {

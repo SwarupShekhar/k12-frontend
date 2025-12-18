@@ -30,39 +30,58 @@ export default function SessionChat() {
         if (!user || !sessionId) return;
 
         const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://k-12-backend.onrender.com';
-        const newSocket = io(API_URL, {
-            query: { sessionId, userId: user.sub || user.id },
-            transports: ['websocket', 'polling'] // Try WebSocket first
+
+        // Use namespace if specified in backend docs, otherwise root
+        // Note: Guided backend implementation uses namespace: 'encounters'
+        const socketPath = API_URL.endsWith('/') ? API_URL + 'encounters' : API_URL + '/encounters';
+
+        console.log('[Chat] Connecting to socket at:', socketPath, 'Session:', sessionId);
+
+        const newSocket = io(socketPath, {
+            query: {
+                sessionId,
+                userId: user.sub || user.id
+            },
+            transports: ['websocket', 'polling'],
+            reconnectionAttempts: 5
         });
 
         setSocket(newSocket);
 
         newSocket.on('connect', () => {
-            console.log('[Chat] Connected to socket');
+            console.log('[Chat] Connected to socket! ID:', newSocket.id);
             newSocket.emit('joinSession', { sessionId });
         });
 
-        newSocket.on('receiveMessage', (payload: any) => {
-            // Only add if it's from someone else (optimistic update handles 'me')
-            // Or if backend echoes everything, handle duplication.
-            // Assuming we receive { text, senderName, senderId, timestamp }
-            const isMe = payload.senderId === (user.sub || user.id);
-            if (!isMe) {
-                const msg: Message = {
-                    id: Date.now().toString() + Math.random(),
-                    text: payload.text,
-                    sender: 'them',
-                    timestamp: new Date(payload.timestamp || Date.now()),
-                    senderName: payload.senderName || 'Anonymous'
-                };
-                setMessages(prev => [...prev, msg]);
-                if (isOpen) {
-                    // Play sound?
-                }
-            }
+        newSocket.on('connect_error', (err) => {
+            console.error('[Chat] Socket connection error:', err);
         });
 
+        // Backend guide suggests 'newMessage', while current code uses 'receiveMessage'
+        // Listening to both to ensure compatibility
+        const handleNewMessage = (payload: any) => {
+            console.log('[Chat] Message received:', payload);
+
+            const senderId = payload.senderId || payload.user_id || payload.from_id;
+            const isMe = senderId === (user.sub || user.id);
+
+            if (!isMe) {
+                const msg: Message = {
+                    id: payload.id || Date.now().toString() + Math.random(),
+                    text: payload.text || payload.message,
+                    sender: 'them',
+                    timestamp: new Date(payload.timestamp || payload.created_at || Date.now()),
+                    senderName: payload.senderName || payload.from || 'Anonymous'
+                };
+                setMessages(prev => [...prev, msg]);
+            }
+        };
+
+        newSocket.on('newMessage', handleNewMessage);
+        newSocket.on('receiveMessage', handleNewMessage);
+
         return () => {
+            console.log('[Chat] Disconnecting socket');
             newSocket.disconnect();
         };
     }, [user, sessionId]);
