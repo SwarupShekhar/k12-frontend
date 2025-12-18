@@ -32,6 +32,7 @@ export default function StudentListModal({ isOpen, onClose }: StudentListModalPr
             api.get('/admin/students')
                 .then(res => {
                     const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+                    console.log('[Admin] Student List Data:', data);
                     setStudents(data);
                 })
                 .catch(() => {
