@@ -155,18 +155,29 @@ export default function SessionChat({ sessionId: propSessionId }: SessionChatPro
             const safeSessionId = sessionId?.trim();
             if (!safeSessionId) throw new Error("Missing Session ID");
 
-            console.log(`[Chat] Sending message to: /sessions/${safeSessionId}/messages`);
-
             const payload = {
+                sessionId: safeSessionId,
                 text,
                 senderName: user?.first_name || 'User',
                 senderId: user?.sub || user?.id,
-                userId: user?.sub || user?.id, // Send both just in case
-                sessionId: safeSessionId
             };
 
-            await api.post(`/sessions/${safeSessionId}/messages`, payload);
-            console.log('[Chat] Message sent via API');
+            console.log('[Chat] Emitting sendMessage via Socket:', payload);
+
+            // Use Socket to send (triggers DB save + broadcast on backend)
+            if (socket && socket.connected) {
+                socket.emit('sendMessage', payload, (response: any) => {
+                    // Ack callback if backend supports it (it returns {success: true})
+                    console.log('[Chat] Socket Ack:', response);
+                });
+            } else {
+                // Fallback to API if socket died (though broadcast might fail)
+                console.warn('[Chat] Socket not connected, falling back to API');
+                await api.post(`/sessions/${safeSessionId}/messages`, {
+                    ...payload,
+                    userId: payload.senderId // API likely needs userId field
+                });
+            }
         } catch (error: any) {
             console.error('[Chat] Failed to send message:', error.response?.data || error.message || error);
             // Optionally alert the user too
