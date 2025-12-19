@@ -47,12 +47,22 @@ export default function StudentDashboardPage() {
               <p className="text-[var(--color-text-secondary)] text-lg mb-6">
                 Ready to learn something new today?
               </p>
-              <button
-                onClick={() => router.push('/bookings/new')}
-                className="px-6 py-3 bg-[var(--color-primary)] text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:scale-105 transition-transform"
-              >
-                + Book a New Session
-              </button>
+              {user?.email_verified === false ? (
+                <button
+                  disabled
+                  className="px-6 py-3 bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed font-bold rounded-xl shadow-none"
+                  title="Please verify your email to book sessions"
+                >
+                  + Book a New Session
+                </button>
+              ) : (
+                <button
+                  onClick={() => router.push('/bookings/new')}
+                  className="px-6 py-3 bg-[var(--color-primary)] text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:scale-105 transition-transform"
+                >
+                  + Book a New Session
+                </button>
+              )}
             </div>
 
             {/* NEXT SESSION CARD */}

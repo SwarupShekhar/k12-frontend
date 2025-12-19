@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import useAuth from '../Hooks/useAuth';
+import { useAuthContext } from '@/app/context/AuthContext';
 
 import Loader from '../components/Loader';
 
 export default function LoginPage() {
-  const { login, loading } = useAuth();
+  const { login, loading, setVerificationModalOpen } = useAuthContext();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -15,7 +15,35 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     try {
-      await login(email.trim(), password);
+      // Pass false to prevent auto-redirect
+      await login(email.trim(), password, false);
+
+      // Get user from local storage or context (might be stale in context immediately?)
+      // AuthContext updates state, but it might take a tick.
+      // However, we can check localStorage as AuthContext sets it synchronously before awaiting.
+      // actually AuthContext.login sets localStorage.
+      const savedUser = localStorage.getItem('K12_USER');
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        if (u.email_verified === false) {
+          // Improve UX: Open the Verification Modal which has the "Resend" button
+          setVerificationModalOpen(true);
+          return;
+        }
+
+        // Manual Redirect
+        if (u.role === 'parent') {
+          window.location.href = '/parent/dashboard';
+        } else if (u.role === 'student') {
+          window.location.href = '/students/dashboard';
+        } else if (u.role === 'tutor') {
+          window.location.href = '/tutor/dashboard';
+        } else if (u.role === 'admin') {
+          window.location.href = '/admin/dashboard';
+        } else {
+          window.location.href = '/parent/dashboard';
+        }
+      }
     } catch (err: any) {
       console.error(err);
       const msg = err?.response?.data?.message || err?.message || 'Login failed. Please check your credentials.';

@@ -58,3 +58,35 @@ export function getToken() {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('K12_TOKEN');
 }
+
+export async function verifyEmail(token: string) {
+  try {
+    const res = await api.post('/auth/verify-email', { token });
+    return res.data;
+  } catch (error: any) {
+    const message = error?.response?.data?.message || error?.message || 'Verification failed';
+    throw new Error(message);
+  }
+}
+
+export async function resendVerification(email?: string) {
+  try {
+    const res = await api.post('/auth/resend-verification', { email });
+    return res.data;
+  } catch (error: any) {
+    const message = error?.response?.data?.message || error?.message || 'Resend failed';
+    throw new Error(message);
+  }
+}
+
+
+
+export async function changePassword(payload: { currentPassword?: string; newPassword: string }) {
+  try {
+    const res = await api.post('/auth/change-password', payload);
+    return res.data;
+  } catch (error: any) {
+    const message = error?.response?.data?.message || error?.message || 'Failed to change password';
+    throw new Error(message);
+  }
+}

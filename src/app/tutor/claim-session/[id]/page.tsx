@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useAuthContext } from '@/app/context/AuthContext';
 import ProtectedClient from '@/app/components/ProtectedClient';
 import api from '@/app/lib/api';
 
@@ -9,6 +10,7 @@ export default function ClaimSessionPage() {
     // Unwrapping params: https://nextjs.org/docs/messages/sync-dynamic-apis
     const params = useParams();
     const id = params?.id as string;
+    const { user } = useAuthContext();
 
     const router = useRouter();
     const [loading, setLoading] = useState(false); // Only load when claiming or fetching info
@@ -81,10 +83,11 @@ export default function ClaimSessionPage() {
 
                     <button
                         onClick={handleClaim}
-                        disabled={loading || !!error} // Disable if already failed (e.g. taken)
+                        disabled={loading || !!error || user?.email_verified === false} // Disable if already failed or unverified
                         className="w-full py-3 px-4 bg-[var(--color-primary)] hover:brightness-110 text-white font-bold rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={user?.email_verified === false ? "Please verify your email first" : ""}
                     >
-                        {loading ? 'Claiming...' : 'Accept Session'}
+                        {loading ? 'Claiming...' : (user?.email_verified === false ? 'Verify Email to Accept' : 'Accept Session')}
                     </button>
 
                     <button

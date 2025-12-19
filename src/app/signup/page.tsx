@@ -6,7 +6,7 @@ import { useAuthContext } from '@/app/context/AuthContext';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signup, login, user, loading } = useAuthContext();
+  const { signup, user, loading } = useAuthContext();
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     email: '',
@@ -14,6 +14,7 @@ export default function SignupPage() {
     first_name: '',
     last_name: '',
     role: 'parent',
+    grade: '',
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -30,31 +31,67 @@ export default function SignupPage() {
     }
   }, [user, loading, router]);
 
+  const validatePassword = (pwd: string) => {
+    // 8+ chars, upper, lower, number, special
+    const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    return regex.test(pwd);
+  };
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
 
+    // 1. Validate Password
+    if (!validatePassword(form.password)) {
+      setError('Password must be at least 8 characters and include uppercase, lowercase, number, and special character.');
+      setBusy(false);
+      return;
+    }
+
     // Ensure role is only 'parent' or 'student'
     const validRole = form.role === 'parent' || form.role === 'student' ? form.role : 'parent';
-    const signupPayload = { ...form, role: validRole };
+
+    // 2. Validate Grade for Students
+    if (validRole === 'student' && !form.grade) {
+      setError('Please select your grade.');
+      setBusy(false);
+      return;
+    }
+
+    // Prepare payload
+    const signupPayload: any = {
+      email: form.email,
+      password: form.password,
+      first_name: form.first_name,
+      last_name: form.last_name,
+      role: validRole
+    };
+
+    if (validRole === 'student') {
+      signupPayload.grade = form.grade;
+    }
 
     try {
       await signup(signupPayload);
-      // Login without auto-redirect so we can route to onboarding
-      await login(form.email, form.password, false);
 
-      // Redirect explicitly based on role
-      if (validRole === 'student') {
-        router.push('/onboarding/student-welcome');
-      } else {
-        router.push('/onboarding'); // Parents go to onboarding welcome
-      }
+      // Success! Redirect to Check Inbox
+      router.push('/signup/check-inbox');
+
     } catch (err: any) {
       console.error(err);
+      // Backend validates disposable emails and returns 400
       setError(err?.message || 'Signup failed. Please try again.');
     } finally {
-      // If we redirected, we might be unmounted, but safe to setBusy false if error
+      if (typeof window !== 'undefined') {
+        // Keep busy true if redirected to prevent flash, else false
+        // Actually safer to set false locally in case redirect fails or is delayed? 
+        // But effectively we want it to look busy until page change.
+        // However, if error occurred, we MUST set false.
+        // If success, we redirect. Rerender might happen. catch block sets error.
+      }
+      // If we created an error, stop busy. If no error (success), we are navigating away.
+      // But to be safe:
       setBusy(false);
     }
   }
@@ -158,6 +195,9 @@ export default function SignupPage() {
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   className="appearance-none relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent focus:z-10 sm:text-sm bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 transition-all font-medium"
                 />
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Must be 8+ chars with uppercase, lowercase, number & special char.
+                </p>
               </div>
 
               <div>
@@ -183,6 +223,24 @@ export default function SignupPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Grade Selection for Students */}
+              <div className={`transition-all duration-300 overflow-hidden ${form.role === 'student' ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0'}`}>
+                <label htmlFor="grade" className="sr-only">Grade</label>
+                <select
+                  id="grade"
+                  name="grade"
+                  value={form.grade}
+                  onChange={(e) => setForm({ ...form, grade: e.target.value })}
+                  className="appearance-none relative block w-full px-4 py-3 border border-gray-300 dark:border-gray-700 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent focus:z-10 sm:text-sm bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 transition-all font-medium"
+                >
+                  <option value="" disabled>Select your grade</option>
+                  {[6, 7, 8, 9, 10, 11, 12].map((g) => (
+                    <option key={g} value={g}>Grade {g}</option>
+                  ))}
+                </select>
+              </div>
+
             </div>
 
             <div>

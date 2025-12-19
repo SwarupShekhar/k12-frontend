@@ -8,6 +8,7 @@ interface Tutor {
     last_name: string;
     email: string;
     subjects?: string[] | string; // Handle both array or string format
+    status?: string;
 }
 
 interface TutorListModalProps {
@@ -30,9 +31,9 @@ export default function TutorListModal({ isOpen, onClose }: TutorListModalProps)
                 .catch(() => {
                     // Fallback / Mock data
                     setTutors([
-                        { id: '1', first_name: 'John', last_name: 'Doe', email: 'john@tutor.com', subjects: ['Math', 'Physics'] },
-                        { id: '2', first_name: 'Jane', last_name: 'Smith', email: 'jane@tutor.com', subjects: 'English, History' },
-                        { id: '3', first_name: 'Robert', last_name: 'Taylor', email: 'robert@tutor.com', subjects: ['Chemistry'] },
+                        { id: '1', first_name: 'John', last_name: 'Doe', email: 'john@tutor.com', subjects: ['Math', 'Physics'], status: 'active' },
+                        { id: '2', first_name: 'Jane', last_name: 'Smith', email: 'jane@tutor.com', subjects: 'English, History', status: 'suspended' },
+                        { id: '3', first_name: 'Robert', last_name: 'Taylor', email: 'robert@tutor.com', subjects: ['Chemistry'], status: 'active' },
                     ]);
                 })
                 .finally(() => setLoading(false));
@@ -58,6 +59,30 @@ export default function TutorListModal({ isOpen, onClose }: TutorListModalProps)
         }
     };
 
+    const handleToggleStatus = async (tutor: Tutor) => {
+        const isSuspended = tutor.status === 'suspended';
+        const newStatus = isSuspended ? 'active' : 'suspended';
+        const action = isSuspended ? 'activate' : 'suspend';
+
+        if (!confirm(`Are you sure you want to ${action} this tutor?`)) return;
+
+        try {
+            // Optimistic update
+            setTutors(prev => prev.map(t => t.id === tutor.id ? { ...t, status: newStatus } : t));
+
+            // Assume PATCH /admin/users/:id or /admin/tutors/:id/status
+            // Falling back to a standard update if specific endpoint not known, 
+            // but requirements said "PATCH /admin/tutors/:id/suspend" or similar.
+            // Let's try PATCH /admin/users/:id { status: ... } first as it's cleaner Rest
+            await api.patch(`/admin/users/${tutor.id}`, { status: newStatus });
+        } catch (error) {
+            console.error(`Failed to ${action} tutor`, error);
+            alert(`Failed to ${action} tutor. Backend might not support this yet.`);
+            // Revert
+            setTutors(prev => prev.map(t => t.id === tutor.id ? { ...t, status: tutor.status } : t));
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col shadow-2xl border border-white/10">
@@ -79,6 +104,7 @@ export default function TutorListModal({ isOpen, onClose }: TutorListModalProps)
                                     <th className="p-4 text-xs font-bold text-gray-500 uppercase">Last Name</th>
                                     <th className="p-4 text-xs font-bold text-gray-500 uppercase">Email</th>
                                     <th className="p-4 text-xs font-bold text-gray-500 uppercase">Subjects</th>
+                                    <th className="p-4 text-xs font-bold text-gray-500 uppercase">Status</th>
                                     <th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Action</th>
                                 </tr>
                             </thead>
@@ -91,7 +117,24 @@ export default function TutorListModal({ isOpen, onClose }: TutorListModalProps)
                                         <td className="p-4 text-gray-600 dark:text-gray-400 text-sm">
                                             {formatSubjects(tutor.subjects)}
                                         </td>
-                                        <td className="p-4 text-right">
+                                        <td className="p-4">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${tutor.status === 'suspended'
+                                                ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                                : 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
+                                                }`}>
+                                                {tutor.status === 'suspended' ? 'SUSPENDED' : 'ACTIVE'}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-right space-x-2">
+                                            <button
+                                                onClick={() => handleToggleStatus(tutor)}
+                                                className={`font-bold text-xs px-2 py-1 rounded transition-colors ${tutor.status === 'suspended'
+                                                    ? 'text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100'
+                                                    : 'text-orange-500 hover:text-orange-700 bg-orange-50 hover:bg-orange-100'
+                                                    }`}
+                                            >
+                                                {tutor.status === 'suspended' ? 'ACTIVATE' : 'SUSPEND'}
+                                            </button>
                                             <button
                                                 onClick={() => handleDelete(tutor.id)}
                                                 className="text-red-500 hover:text-red-700 font-bold text-xs px-2 py-1 rounded bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"

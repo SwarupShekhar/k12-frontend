@@ -22,11 +22,23 @@ interface BookingWizardProps {
 
 export default function BookingWizard({ students, isStudentsLoading = false }: BookingWizardProps) {
     const router = useRouter();
+    const { user } = useAuthContext();
+    const isStudent = user?.role === 'student';
+
     const { subjects, curricula, packages, loading: loadingCatalog } = useCatalog();
 
-    const [step, setStep] = useState<Step>(0);
+    const [step, setStep] = useState<Step>(isStudent ? 1 : 0);
 
     const [studentId, setStudentId] = useState<string | null>(null);
+
+    // Auto-select student for student role (redundant but safe)
+    useEffect(() => {
+        if (isStudent && students.length > 0 && !studentId) {
+            setStudentId(students[0].id);
+        }
+    }, [isStudent, students, studentId]);
+
+    // ...
     const [subjectIds, setSubjectIds] = useState<string[]>([]);
     const [curriculumId, setCurriculumId] = useState<string | null>(null);
 
@@ -111,7 +123,7 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
     }, [start, end]);
 
 
-    const { user } = useAuthContext();
+
 
     async function submitBooking() {
         // Validation with specific error
@@ -205,6 +217,8 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
             {/* Step indicator */}
             <div className="mb-8 flex flex-wrap gap-2 text-xs sm:text-sm font-medium">
                 {['Student', 'Subject & curriculum', 'Package', 'Schedule', 'Review'].map((label, idx) => {
+                    if (isStudent && idx === 0) return null; // Skip Student step in UI
+
                     const isActive = step === idx;
                     const isCompleted = step > idx;
 
@@ -219,7 +233,7 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
 
                     return (
                         <div key={idx} className={className}>
-                            {idx + 1}. {label}
+                            {isStudent ? idx : idx + 1}. {label}
                         </div>
                     );
                 })}
@@ -391,7 +405,7 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
                     >
                         {packages?.map((p: any) => (
                             <option key={p.id} value={p.id}>
-                                {p.name} {p.price_cents > 0 && p.id !== 'starter' ? `— ${(p.price_cents / 100).toFixed(2)} ${p.currency ?? 'USD'}` : ''}
+                                {p.name} {!isStudent && p.price_cents > 0 && p.id !== 'starter' ? `— ${(p.price_cents / 100).toFixed(2)} ${p.currency ?? 'USD'}` : ''}
                             </option>
                         ))}
                     </select>
@@ -486,8 +500,8 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
             <div className="mt-8 flex justify-between items-center gap-3">
                 <button
                     type="button"
-                    disabled={step === 0}
-                    onClick={() => setStep((s) => (Math.max(0, s - 1) as Step))}
+                    disabled={step === (isStudent ? 1 : 0)}
+                    onClick={() => setStep((s) => (Math.max(isStudent ? 1 : 0, s - 1) as Step))}
                     className="px-6 py-2.5 rounded-xl border border-[var(--color-border)] text-[var(--color-text-primary)] text-sm font-medium hover:bg-[var(--color-surface)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
                     Back

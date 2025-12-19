@@ -14,6 +14,8 @@ export const metadata = {
 
 import { NotificationProvider } from './context/NotificationContext';
 import GlobalNotification from './components/GlobalNotification';
+import VerificationModal from './components/auth/VerificationModal';
+import VerificationBanner from './components/auth/VerificationBanner';
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -23,7 +25,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <AuthProvider>
             <NotificationProvider>
               <Navbar />
+              <VerificationBanner />
               <GlobalNotification />
+              <VerificationModal />
               {children}
               <Footer />
             </NotificationProvider>
@@ -31,6 +35,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </QueryProvider>
         <Script src="https://meet.jit.si/external_api.js" strategy="afterInteractive" />
       </body>
-    </html>
+    </html >
   );
 }

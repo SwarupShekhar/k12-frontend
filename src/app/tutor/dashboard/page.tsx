@@ -41,12 +41,18 @@ export default function TutorDashboardPage() {
                     <p className="text-sm text-gray-600 mb-2">
                       {job.requested_start ? new Date(job.requested_start).toLocaleString() : 'Time TBD'}
                     </p>
-                    <Link
-                      href={`/tutor/claim-session/${job.id}`}
-                      className="block w-full py-2 bg-green-500 hover:bg-green-600 text-white font-bold text-center rounded-lg transition-colors text-sm"
-                    >
-                      Accept Job →
-                    </Link>
+                    {user?.email_verified === false ? (
+                      <span className="block w-full py-2 bg-gray-300 text-gray-500 font-bold text-center rounded-lg cursor-not-allowed text-sm" title="Verify email to accept jobs">
+                        Accept Job →
+                      </span>
+                    ) : (
+                      <Link
+                        href={`/tutor/claim-session/${job.id}`}
+                        className="block w-full py-2 bg-green-500 hover:bg-green-600 text-white font-bold text-center rounded-lg transition-colors text-sm"
+                      >
+                        Accept Job →
+                      </Link>
+                    )}
                   </div>
                 ))}
               </div>
