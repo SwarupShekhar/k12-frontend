@@ -155,30 +155,92 @@ export default function BlogPostPage({ params }: { params: Promise<{ id: string 
                     prose-li:text-[1.125rem] prose-li:text-gray-700
                     first-letter:text-5xl first-letter:font-bold first-letter:text-gray-900 first-letter:float-left first-letter:mr-3 first-letter:mt-[-4px]">
 
-                    <ReactMarkdown
-                        remarkPlugins={[remarkGfm, remarkBreaks]}
-                        components={{
-                            h1: ({ node, ...props }) => <h1 className="text-3xl font-black mt-10 mb-6 text-gray-900 leading-tight tracking-tight" {...props} />,
-                            h2: ({ node, ...props }) => <h2 className="text-2xl font-bold mt-8 mb-4 text-gray-900 leading-snug tracking-tight" {...props} />,
-                            h3: ({ node, ...props }) => <h3 className="text-xl font-bold mt-6 mb-3 text-gray-900" {...props} />,
-                            p: ({ node, ...props }) => <p className="mb-6 leading-loose text-lg text-gray-800" {...props} />,
-                            ul: ({ node, ...props }) => <ul className="list-disc list-outside ml-6 mb-6 space-y-2 text-lg text-gray-800" {...props} />,
-                            ol: ({ node, ...props }) => <ol className="list-decimal list-outside ml-6 mb-6 space-y-2 text-lg text-gray-800" {...props} />,
-                            li: ({ node, ...props }) => <li className="pl-2" {...props} />,
-                            blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-blue-600 pl-6 py-2 italic my-8 bg-blue-50 text-xl text-gray-900 font-serif leading-relaxed rounded-r-lg" {...props} />,
-                            a: ({ node, ...props }) => <a className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors" {...props} />,
-                            strong: ({ node, ...props }) => <strong className="font-black text-gray-900" {...props} />,
-                            hr: ({ node, ...props }) => <hr className="my-10 border-gray-200" {...props} />,
-                            code: ({ node, ...props }) => <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />,
-                            img: ({ node, ...props }) => (
+                    {(() => {
+                        // Helper to split content into 3 parts
+                        const splitContent = (text: string) => {
+                            if (!text) return [];
+                            const paragraphs = text.split('\n\n');
+                            if (paragraphs.length < 6) return [text]; // Don't split short posts
+
+                            const third = Math.ceil(paragraphs.length / 3);
+                            const part1 = paragraphs.slice(0, third).join('\n\n');
+                            const part2 = paragraphs.slice(third, third * 2).join('\n\n');
+                            const part3 = paragraphs.slice(third * 2).join('\n\n');
+                            return [part1, part2, part3];
+                        };
+
+                        const parts = splitContent(blog.content);
+                        const components = {
+                            h1: ({ node, ...props }: any) => <h1 className="text-3xl font-black mt-10 mb-6 text-gray-900 leading-tight tracking-tight" {...props} />,
+                            h2: ({ node, ...props }: any) => <h2 className="text-2xl font-bold mt-8 mb-4 text-gray-900 leading-snug tracking-tight" {...props} />,
+                            h3: ({ node, ...props }: any) => <h3 className="text-xl font-bold mt-6 mb-3 text-gray-900" {...props} />,
+                            p: ({ node, ...props }: any) => <p className="mb-6 leading-loose text-lg text-gray-800" {...props} />,
+                            ul: ({ node, ...props }: any) => <ul className="list-disc list-outside ml-6 mb-6 space-y-2 text-lg text-gray-800" {...props} />,
+                            ol: ({ node, ...props }: any) => <ol className="list-decimal list-outside ml-6 mb-6 space-y-2 text-lg text-gray-800" {...props} />,
+                            li: ({ node, ...props }: any) => <li className="pl-2" {...props} />,
+                            blockquote: ({ node, ...props }: any) => <blockquote className="border-l-4 border-blue-600 pl-6 py-2 italic my-8 bg-blue-50 text-xl text-gray-900 font-serif leading-relaxed rounded-r-lg" {...props} />,
+                            a: ({ node, ...props }: any) => <a className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors" {...props} />,
+                            strong: ({ node, ...props }: any) => <strong className="font-black text-gray-900" {...props} />,
+                            hr: ({ node, ...props }: any) => <hr className="my-10 border-gray-200" {...props} />,
+                            code: ({ node, ...props }: any) => <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />,
+                            img: ({ node, ...props }: any) => (
                                 <span className="block my-8">
                                     <img className="rounded-xl shadow-lg w-full object-cover max-h-[500px]" {...props} alt={props.alt || ''} />
                                 </span>
                             )
-                        }}
-                    >
-                        {blog.content}
-                    </ReactMarkdown>
+                        };
+
+                        return (
+                            <>
+                                {/* PART 1 */}
+                                <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>
+                                    {parts[0]}
+                                </ReactMarkdown>
+
+                                {/* VISUAL BREAK 1 */}
+                                {parts.length > 1 && (
+                                    <div className="my-12 -mx-6 md:-mx-12 relative aspect-[2/1] rounded-xl overflow-hidden shadow-lg group">
+                                        <Image
+                                            src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=1600"
+                                            alt="Study Session"
+                                            fill
+                                            className="object-cover group-hover:scale-105 transition-transform duration-700"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                                        <p className="absolute bottom-4 left-6 text-white font-medium italic opacity-90">"The art of learning is the art of discovery."</p>
+                                    </div>
+                                )}
+
+                                {/* PART 2 */}
+                                {parts.length > 1 && (
+                                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>
+                                        {parts[1]}
+                                    </ReactMarkdown>
+                                )}
+
+                                {/* VISUAL BREAK 2 */}
+                                {parts.length > 2 && (
+                                    <div className="my-12 -mx-6 md:-mx-12 relative aspect-[2/1] rounded-xl overflow-hidden shadow-lg group">
+                                        <Image
+                                            src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1600"
+                                            alt="Collaboration"
+                                            fill
+                                            className="object-cover group-hover:scale-105 transition-transform duration-700"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                                        <p className="absolute bottom-4 left-6 text-white font-medium italic opacity-90">Connecting ideas, connecting people.</p>
+                                    </div>
+                                )}
+
+                                {/* PART 3 */}
+                                {parts.length > 2 && (
+                                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>
+                                        {parts[2]}
+                                    </ReactMarkdown>
+                                )}
+                            </>
+                        );
+                    })()}
                 </div>
 
                 {/* VISUAL BREAK - WIDE IMAGE (Simulated injection at bottom for now, as splitting markdown is complex without data) */}

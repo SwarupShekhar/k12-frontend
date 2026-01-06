@@ -150,7 +150,12 @@ export default function NewBlogPage() {
                             {/* Content Editor */}
                             <div>
                                 <div className="flex justify-between items-center mb-1">
-                                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">Content (Markdown supported)</label>
+                                    <label className="block text-sm font-medium text-[var(--color-text-secondary)]">
+                                        Content (Markdown supported)
+                                        <span className="ml-2 text-xs text-[var(--color-primary)] font-normal bg-blue-50 px-2 py-0.5 rounded-full">
+                                            Tip: Type <code>![Alt](url)</code> to add images
+                                        </span>
+                                    </label>
                                     <div className="flex bg-[var(--color-surface)] rounded-lg p-1 border border-[var(--color-border)]">
                                         <button
                                             type="button"
@@ -177,7 +182,7 @@ export default function NewBlogPage() {
                                         value={form.content}
                                         onChange={handleChange}
                                         className="w-full px-4 py-3 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-primary)] outline-none font-mono text-sm"
-                                        placeholder={`# Main Title\n\n## Section Header\n\nWrite your content here...`}
+                                        placeholder={`# Main Title\n\n## Section Header\n\n![My Image](https://example.com/photo.jpg)\n\nWrite your content here...`}
                                     />
                                 ) : (
                                     <div className="w-full h-[380px] overflow-y-auto px-4 py-3 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)]">
