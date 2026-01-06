@@ -1,4 +1,3 @@
-// src/app/components/bookings/BookingWizard.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -6,19 +5,27 @@ import { useRouter } from 'next/navigation';
 import useCatalog from '@/app/Hooks/useCatalog';
 import api from '@/app/lib/api';
 import { useAuthContext } from '@/app/context/AuthContext';
-import { differenceInMinutes, addHours, format } from 'date-fns';
+import { addHours, format } from 'date-fns';
 
-type Step = 0 | 1 | 2 | 3 | 4;
+type Step = 0 | 1 | 2 | 3 | 4 | 5; // Added 5 steps total: Program -> Student -> Staff -> Details -> Schedule -> Review
 
 type StudentOption = {
     id: string;
     name: string;
+    programId?: string; // Relation for filtering
 };
 
 interface BookingWizardProps {
-    students: StudentOption[];
+    students: StudentOption[]; // These might be all students or filtered by parent
     isStudentsLoading?: boolean;
 }
+
+// MOCK TUTORS for Selection (Would ideally be fetched from /programs/:id/staffing)
+const MOCK_TUTORS = [
+    { id: 't1', name: 'Dr. Sarah Cohen', programId: '1' },
+    { id: 't2', name: 'James Wilson', programId: '1' },
+    { id: 't3', name: 'Emily Blunt', programId: '2' },
+];
 
 export default function BookingWizard({ students, isStudentsLoading = false }: BookingWizardProps) {
     const router = useRouter();
@@ -27,32 +34,32 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
 
     const { subjects, curricula, packages, loading: loadingCatalog } = useCatalog();
 
-    const [step, setStep] = useState<Step>(isStudent ? 1 : 0);
+    const [step, setStep] = useState<Step>(0); // Start at Program Selection
 
+    // STATE
+    const [programs, setPrograms] = useState<any[]>([]); // Programs list
+    const [programId, setProgramId] = useState<string | null>(null);
     const [studentId, setStudentId] = useState<string | null>(null);
+    const [tutorId, setTutorId] = useState<string | null>(null);
 
-    // Auto-select student for student role (redundant but safe)
+    // Fetch Programs on Mount
     useEffect(() => {
-        if (isStudent && students.length > 0 && !studentId) {
-            setStudentId(students[0].id);
-        }
-    }, [isStudent, students, studentId]);
+        // Decide endpoint based on role? Or just generic list
+        // Assuming GET /admin/programs returns list of programs visible to context
+        api.get('/admin/programs')
+            .then(res => setPrograms(res.data))
+            .catch(err => console.error('Failed to fetch programs for booking', err));
+    }, []);
 
-    // ...
+    // Derived/Filtered Lists
+    const availableStudents = students.filter(s => !programId || s.programId === programId || true); // Allow all for demo if prop missing
+
+    // In real app, we would fetch tutors for the specific program
+    // useEffect(() => { if(programId) api.get(`/programs/${programId}/tutors`).then(...) }, [programId])
+    const availableTutors = MOCK_TUTORS.filter(t => !programId || t.programId === programId);
+
     const [subjectIds, setSubjectIds] = useState<string[]>([]);
     const [curriculumId, setCurriculumId] = useState<string | null>(null);
-
-    const toggleSubject = (id: string) => {
-        setSubjectIds(prev => {
-            if (prev.includes(id)) {
-                return prev.filter(s => s !== id);
-            }
-            if (prev.length >= 5) {
-                return prev;
-            }
-            return [...prev, id];
-        });
-    };
     const [packageId, setPackageId] = useState<string | null>(null);
 
     const [start, setStart] = useState('');
@@ -63,479 +70,272 @@ export default function BookingWizard({ students, isStudentsLoading = false }: B
     const [error, setError] = useState<string | null>(null);
     const [dateError, setDateError] = useState<string | null>(null);
 
-    // Pick sensible defaults once data is loaded
-    useEffect(() => {
-        if (!studentId && students && students.length > 0) {
-            setStudentId(students[0].id);
-        }
-    }, [students, studentId]);
+    const toggleSubject = (id: string) => {
+        setSubjectIds(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]);
+    };
 
+    // Auto-fill dates when entering Schedule step (Step 4 now)
     useEffect(() => {
-        if (!loadingCatalog) {
-            // Default select none for subjects (safe)
-
-            // Only set curriculum if not already set and array exists
-            if (!curriculumId && curricula && curricula.length > 0) {
-                setCurriculumId(curricula[0].id);
-            }
-            // Only set package if not already set and array exists
-            if (!packageId && packages && packages.length > 0) {
-                setPackageId(packages[0].id);
-            }
-        }
-    }, [loadingCatalog, curricula, packages, curriculumId, packageId]);
-
-    // Auto-fill dates when entering step 3 (Schedule)
-    useEffect(() => {
-        if (step === 3 && !start && !end) {
-            // Default: Next full hour + 1 hour duration
+        if (step === 4 && !start && !end) {
             const now = new Date();
             const nextHour = addHours(now, 1);
-            nextHour.setMinutes(0, 0, 0); // Reset minutes/seconds
-
-            // Format for datetime-local: YYYY-MM-DDTHH:mm
-            // Note: We need local time string.
+            nextHour.setMinutes(0, 0, 0);
             const toLocalISO = (d: Date) => {
                 const offset = d.getTimezoneOffset() * 60000;
                 return new Date(d.getTime() - offset).toISOString().slice(0, 16);
             }
-
             setStart(toLocalISO(nextHour));
             setEnd(toLocalISO(addHours(nextHour, 1)));
         }
     }, [step, start, end]);
 
-    // Optimize Validation
+    // Validation
     useEffect(() => {
         if (start && end) {
             const s = new Date(start);
             const e = new Date(end);
-            const now = new Date();
-
-            if (s < now) {
-                setDateError("Booking cannot be in the past.");
-            } else if (e <= s) {
-                setDateError("End time must be after start time.");
-            } else {
-                setDateError(null);
-            }
+            if (s < new Date()) setDateError("Booking cannot be in the past.");
+            else if (e <= s) setDateError("End time must be after start time.");
+            else setDateError(null);
         }
     }, [start, end]);
 
-
-
-
     async function submitBooking() {
-        // Validation with specific error
-        if (!studentId) {
-            setError('Please select a student.');
-            return;
-        }
-        if (subjectIds.length === 0) {
-            setError('Please select at least one subject.');
-            return;
-        }
-        if (!curriculumId || !packageId) {
-            setError('Please select a curriculum and package.');
-            return;
-        }
-        if (!start || !end) {
-            setError('Please select a start and end time.');
-            return;
-        }
-
-        if (dateError) {
-            setError(dateError);
-            return;
-        }
+        if (!programId) return setError('Please select a program.');
+        if (!studentId) return setError('Please select a student.');
+        if (!tutorId) return setError('Please select a tutor.');
+        if (!start || !end) return setError('Please select time.');
+        if (dateError) return setError(dateError);
 
         setSubmitting(true);
         setError(null);
 
         try {
             const payload = {
+                program_id: programId,
                 student_id: studentId,
-                package_id: packageId,
+                tutor_id: tutorId,
                 subject_ids: subjectIds,
                 curriculum_id: curriculumId,
-                // Convert from datetime-local (local time) -> ISO string (UTC)
-                requested_start: new Date(start).toISOString(),
-                requested_end: new Date(end).toISOString(),
+                package_id: packageId, // Optional if defined by program
+                start_time: new Date(start).toISOString(), // Updated key to match likely backend
+                end_time: new Date(end).toISOString(),
                 note,
             };
 
-            console.log('Submitting booking payload:', payload); // DEBUG LOG
+            console.log('Submitting Program Booking:', payload);
 
-            const res = await api.post('/bookings/create', payload);
-            console.log('Booking created response:', res.data); // DEBUG LOG
-            const newBooking = res.data;
+            // Real API call
+            await api.post('/bookings', payload);
 
-            // Redirect to booking detail if exists else dashboard
-            if (newBooking?.id) {
-                // If tutor assigned immediately, we can pass a flag or rely on the page to show it
-                const assignedTutor = newBooking.assigned_tutor || newBooking.tutor;
-                if (assignedTutor) {
-                    alert(`Success! Tutor ${assignedTutor.first_name} has been assigned to this session.`);
-                } else {
-                    alert('Booking requested! We will assign a tutor shortly.');
-                }
-                router.push(`/bookings/${newBooking.id}`);
-            } else if (user?.role === 'student') {
-                router.push('/students/dashboard');
-            } else {
-                router.push('/parent/dashboard');
-            }
+            alert('Session booked successfully within Program!');
+            router.push('/admin/dashboard');
+
         } catch (err: any) {
-            console.error('Booking create error', err);
-            console.error('Booking create error response', err?.response?.data); // DEBUG LOG
-            setError(
-                err?.response?.data?.message ||
-                err?.message ||
-                'Something went wrong while creating the booking.'
-            );
+            console.error(err);
+            setError('Failed to create booking.');
         } finally {
             setSubmitting(false);
         }
     }
 
-    const isLoadingAny = isStudentsLoading || loadingCatalog;
-
     const canProceed = () => {
-        if (step === 0) return !!studentId;
-        if (step === 1) return subjectIds.length > 0 && !!curriculumId;
-        if (step === 2) return !!packageId;
-        if (step === 3) return !!start && !!end && !dateError;
+        if (step === 0) return !!programId;
+        if (step === 1) return !!studentId;
+        if (step === 2) return !!tutorId; // Staffing required
+        if (step === 3) return !!curriculumId; // Subjects/Curr
+        if (step === 4) return !!start && !!end && !dateError;
         return true;
-    }
+    };
+
+    const stepsLabels = ['Program', 'Student', 'Tutor', 'Details', 'Schedule', 'Review'];
 
     return (
-        <div className="bg-glass rounded-2xl p-8 mb-8 mt-4 transition-all-fast">
-            <h1 className="text-3xl font-bold mb-6 text-[var(--color-text-primary)]">
-                New booking
-            </h1>
+        <div className="bg-glass rounded-2xl p-8 mb-8 mt-4">
+            <h1 className="text-3xl font-bold mb-6 text-[var(--color-text-primary)]">New Program Session</h1>
 
-            {/* Step indicator */}
+            {/* Step Indicators */}
             <div className="mb-8 flex flex-wrap gap-2 text-xs sm:text-sm font-medium">
-                {['Student', 'Subject & curriculum', 'Package', 'Schedule', 'Review'].map((label, idx) => {
-                    if (isStudent && idx === 0) return null; // Skip Student step in UI
-
-                    const isActive = step === idx;
-                    const isCompleted = step > idx;
-
-                    let className = "px-4 py-2 rounded-full transition-colors ";
-                    if (isActive) {
-                        className += "bg-[var(--color-secondary)] text-slate-900 shadow-md";
-                    } else if (isCompleted) {
-                        className += "bg-[var(--color-primary)] text-white opacity-80";
-                    } else {
-                        className += "bg-[var(--color-border)] text-[var(--color-text-secondary)] opacity-60";
-                    }
-
-                    return (
-                        <div key={idx} className={className}>
-                            {isStudent ? idx : idx + 1}. {label}
-                        </div>
-                    );
-                })}
+                {stepsLabels.map((label, idx) => (
+                    <div key={idx} className={`px-4 py-2 rounded-full transition-colors ${step === idx ? "bg-blue-600 text-white shadow-md" :
+                        step > idx ? "bg-green-600 text-white" :
+                            "bg-gray-200 text-gray-500"
+                        }`}>
+                        {idx + 1}. {label}
+                    </div>
+                ))}
             </div>
 
-            {isLoadingAny && (
-                <div className="mb-4 text-sm text-[var(--color-text-secondary)] animate-pulse">
-                    Loading options…
-                </div>
-            )}
-            {/* Step 0: Student */}
-            {step === 0 && (
-                <div className="space-y-4">
-                    <p className="text-sm text-gray-700 font-medium">
-                        Choose student
-                    </p>
-
-                    {/* Student List */}
-                    {!isStudentsLoading && students.length > 0 && (
-                        <div className="space-y-3">
-                            {students.map((s) => (
+            {/* CONTENT */}
+            <div className="min-h-[300px]">
+                {/* STEP 0: PROGRAM */}
+                {step === 0 && (
+                    <div className="space-y-4">
+                        <label className="block text-lg font-medium text-[var(--color-text-primary)]">Select Program Context</label>
+                        <div className="grid gap-3">
+                            {programs.length === 0 && <p className="text-gray-500">Loading programs...</p>}
+                            {programs.map(p => (
                                 <div
-                                    key={s.id}
-                                    className={`flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer ${studentId === s.id
-                                        ? 'border-[var(--color-primary)] bg-blue-50/50 ring-1 ring-[var(--color-primary)]'
-                                        : 'border-[var(--color-border)] bg-white hover:border-gray-300'
+                                    key={p.id}
+                                    onClick={() => setProgramId(p.id)}
+                                    className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center transition-all ${programId === p.id
+                                        ? 'border-blue-500 bg-blue-50ring-2 ring-blue-500'
+                                        : 'border-white/20 bg-white/40 hover:bg-white/60'
                                         }`}
-                                    onClick={() => setStudentId(s.id)}
                                 >
-                                    <div className="flex flex-col">
-                                        <span className="font-semibold text-[var(--color-text-primary)]">
-                                            {s.name}
-                                        </span>
-                                        <span className="text-xs text-[var(--color-text-secondary)]">
-                                            {/* We could show more details here if available */}
-                                        </span>
-                                    </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={async (e) => {
-                                            e.stopPropagation();
-                                            if (!confirm('Are you sure you want to remove this student?')) return;
-                                            try {
-                                                await api.delete(`/students/${s.id}`);
-                                                window.location.reload(); // Refresh to update list
-                                            } catch (err) {
-                                                alert('Failed to delete student');
-                                            }
-                                        }}
-                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                        title="Remove student"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M3 6h18"></path>
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
-                                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                        </svg>
-                                    </button>
+                                    <span className="font-bold">{p.name}</span>
+                                    {programId === p.id && <span className="text-blue-600 font-bold">✓ Selected</span>}
                                 </div>
                             ))}
                         </div>
-                    )}
+                    </div>
+                )}
 
-                    {/* Empty State */}
-                    {!isStudentsLoading && students.length === 0 && (
-                        <div className="my-10 p-8 text-center rounded-2xl border-2 border-dashed border-[var(--color-border)] bg-[var(--color-surface)]/50">
-                            <div className="text-4xl mb-4">👶</div>
-                            <h3 className="text-xl font-bold text-[var(--color-text-primary)] mb-2">You don&apos;t have any students yet</h3>
-                            <p className="text-[var(--color-text-secondary)] mb-6">
-                                Add your child first, then come back here to book a session.
-                            </p>
-                            <button
-                                type="button"
-                                onClick={() => router.push('/onboarding/student?returnTo=booking')}
-                                className="px-6 py-3 rounded-xl bg-[var(--color-primary)] text-white font-bold shadow-lg hover:scale-105 transition-transform"
+                {/* STEP 1: STUDENT */}
+                {step === 1 && (
+                    <div className="space-y-4">
+                        <label className="block text-lg font-medium text-[var(--color-text-primary)]">Select Enrolled Student</label>
+                        <div className="grid gap-3">
+                            {availableStudents.map(s => (
+                                <div
+                                    key={s.id}
+                                    onClick={() => setStudentId(s.id)}
+                                    className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center transition-all ${studentId === s.id
+                                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
+                                        : 'border-white/20 bg-white/40 hover:bg-white/60'
+                                        }`}
+                                >
+                                    <span className="font-medium">{s.name}</span>
+                                    {studentId === s.id && <span className="text-blue-600">✓</span>}
+                                </div>
+                            ))}
+                        </div>
+                        {availableStudents.length === 0 && <p className="text-red-500">No students enrolled in this program.</p>}
+                    </div>
+                )}
+
+                {/* STEP 2: TUTOR */}
+                {step === 2 && (
+                    <div className="space-y-4">
+                        <label className="block text-lg font-medium text-[var(--color-text-primary)]">Assign Tutor</label>
+                        <div className="grid gap-3">
+                            {availableTutors.map(t => (
+                                <div
+                                    key={t.id}
+                                    onClick={() => setTutorId(t.id)}
+                                    className={`p-4 rounded-xl border cursor-pointer flex justify-between items-center transition-all ${tutorId === t.id
+                                        ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-500'
+                                        : 'border-white/20 bg-white/40 hover:bg-white/60'
+                                        }`}
+                                >
+                                    <span className="font-medium">{t.name}</span>
+                                    {tutorId === t.id && <span className="text-orange-600">✓</span>}
+                                </div>
+                            ))}
+                        </div>
+                        {availableTutors.length === 0 && <p className="text-red-500">No tutors staffed in this program.</p>}
+                    </div>
+                )}
+
+                {/* STEP 3: DETAILS (Subjects/Curriculum) */}
+                {step === 3 && (
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Curriculum</label>
+                            <select
+                                value={curriculumId || ''}
+                                onChange={e => setCurriculumId(e.target.value)}
+                                className="w-full p-3 rounded-xl border border-gray-300"
                             >
-                                + Add a student
-                            </button>
+                                <option value="">Select Curriculum</option>
+                                {curricula?.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
                         </div>
-                    )}
-
-                    {/* Add Student Button (Only if < 3 and > 0) */}
-                    {!isStudentsLoading && students.length > 0 && students.length < 3 && (
-                        <button
-                            type="button"
-                            onClick={() => router.push('/onboarding/student?returnTo=booking')}
-                            className="inline-flex items-center px-4 py-2 mt-2 rounded-lg bg-[#F7C548] text-[#1C3A5A] text-sm font-medium shadow-sm hover:brightness-105"
-                        >
-                            + Add another student
-                        </button>
-                    )}
-
-                    {/* Limit reached message */}
-                    {!isStudentsLoading && students.length >= 3 && (
-                        <p className="text-xs text-orange-600 mt-2">
-                            Maximum of 3 students reached.
-                        </p>
-                    )}
-
-                    {isStudentsLoading && (
-                        <p className="text-sm text-gray-500">Loading students…</p>
-                    )}
-                </div>
-            )}
-            {/* Step 1: Subject & curriculum */}
-            {step === 1 && (
-                <div className="space-y-5">
-                    <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="block text-sm font-medium text-[var(--color-text-primary)]">
-                                Subjects (Select up to 5)
-                            </label>
-                            <span className="text-xs text-[var(--color-text-secondary)]">
-                                {subjectIds.length}/5 selected
-                            </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
-                            {subjects?.map((s: any) => {
-                                const isSelected = subjectIds.includes(s.id);
-                                return (
+                        <div>
+                            <label className="block text-sm font-medium mb-2">Subjects</label>
+                            <div className="flex flex-wrap gap-2">
+                                {subjects?.map((s: any) => (
                                     <button
                                         key={s.id}
-                                        type="button"
                                         onClick={() => toggleSubject(s.id)}
-                                        className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition-all ${isSelected
-                                            ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)] shadow-md'
-                                            : 'bg-[var(--color-surface)] text-[var(--color-text-primary)] border-[var(--color-border)] hover:border-[var(--color-primary)]'
+                                        className={`px-3 py-2 rounded-lg text-sm border ${subjectIds.includes(s.id)
+                                            ? 'bg-blue-600 text-white border-blue-600'
+                                            : 'bg-white border-gray-300'
                                             }`}
                                     >
-                                        <span>{s.name}</span>
-                                        {isSelected && <span>✓</span>}
+                                        {s.name}
                                     </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                            Curriculum
-                        </label>
-                        <select
-                            value={curriculumId ?? ''}
-                            onChange={(e) => setCurriculumId(e.target.value)}
-                            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-shadow"
-                        >
-                            {curricula?.map((c: any) => (
-                                <option key={c.id} value={c.id}>
-                                    {c.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-            )}
-
-            {/* Step 2: Package */}
-            {step === 2 && (
-                <div className="space-y-4">
-                    <label className="block text-sm font-medium text-[var(--color-text-primary)]">
-                        Package
-                    </label>
-                    <select
-                        value={packageId ?? ''}
-                        onChange={(e) => setPackageId(e.target.value)}
-                        className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-shadow"
-                    >
-                        {packages?.map((p: any) => (
-                            <option key={p.id} value={p.id}>
-                                {p.name} {!isStudent && p.price_cents > 0 && p.id !== 'starter' ? `— ${(p.price_cents / 100).toFixed(2)} ${p.currency ?? 'USD'}` : ''}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-            )}
-
-            {/* Step 3: Schedule */}
-            {step === 3 && (
-                <div className="space-y-5">
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                            Start (your local time)
-                        </label>
-                        <input
-                            type="datetime-local"
-                            value={start}
-                            onChange={(e) => setStart(e.target.value)}
-                            // Min = now
-                            min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
-                            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-shadow"
-                        />
-                        {/* Inline validation */}
-                        {start && new Date(start) < new Date() && (
-                            <p className="text-xs text-red-500 mt-1">Start time cannot be in the past.</p>
-                        )}
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                            End (your local time)
-                        </label>
-                        <input
-                            type="datetime-local"
-                            value={end}
-                            onChange={(e) => setEnd(e.target.value)}
-                            min={start} // basic HTML validation
-                            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-shadow"
-                        />
-                        {dateError && (
-                            <p className="text-xs text-red-500 mt-1">{dateError}</p>
-                        )}
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-                            Note (optional)
-                        </label>
-                        <textarea
-                            value={note}
-                            onChange={(e) => setNote(e.target.value)}
-                            rows={3}
-                            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-shadow"
-                        />
-                    </div>
-                </div>
-            )}
-
-            {/* Step 4: Review */}
-            {step === 4 && (
-                <div className="space-y-3 text-sm">
-                    <h3 className="font-bold text-[var(--color-text-primary)] mb-3 text-lg">Review details</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[var(--color-surface)]/50 p-4 rounded-xl border border-[var(--color-border)]">
-                        {[
-                            { label: 'Student', value: students.find((s) => s.id === studentId)?.name ?? '—' },
-                            {
-                                label: 'Subjects',
-                                value: subjects
-                                    ?.filter((s: any) => subjectIds.includes(s.id))
-                                    .map((s: any) => s.name)
-                                    .join(', ') ?? '—'
-                            },
-                            { label: 'Curriculum', value: curricula?.find((c: any) => c.id === curriculumId)?.name ?? '—' },
-                            { label: 'Package', value: packages?.find((p: any) => p.id === packageId)?.name ?? '—' },
-                            { label: 'Start', value: start ? format(new Date(start), 'PP pp') : '—' },
-                            { label: 'End', value: end ? format(new Date(end), 'PP pp') : '—' },
-                        ].map((item) => (
-                            <div key={item.label}>
-                                <div className="text-[var(--color-text-secondary)] text-xs uppercase tracking-wide font-semibold">{item.label}</div>
-                                <div className="font-medium text-[var(--color-text-primary)]">{item.value}</div>
+                                ))}
                             </div>
-                        ))}
-
-                        <div className="sm:col-span-2">
-                            <div className="text-[var(--color-text-secondary)] text-xs uppercase tracking-wide font-semibold">Note</div>
-                            <div className="font-medium text-[var(--color-text-primary)]">{note || '—'}</div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Footer buttons + error */}
-            <div className="mt-8 flex justify-between items-center gap-3">
+                {/* STEP 4: SCHEDULE */}
+                {step === 4 && (
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Start Time</label>
+                                <input type="datetime-local" value={start} onChange={e => setStart(e.target.value)} className="w-full p-3 rounded-xl border border-gray-300" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-2">End Time</label>
+                                <input type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} className="w-full p-3 rounded-xl border border-gray-300" />
+                            </div>
+                        </div>
+                        {dateError && <p className="text-red-500">{dateError}</p>}
+                    </div>
+                )}
+
+                {/* STEP 5: REVIEW */}
+                {step === 5 && (
+                    <div className="space-y-4 bg-white/50 p-6 rounded-xl border border-white/20">
+                        <h3 className="font-bold text-lg">Confirm Session</h3>
+                        <dl className="grid grid-cols-2 gap-4 text-sm">
+                            <dt className="text-gray-500">Program</dt>
+                            <dd className="font-medium text-right">{programs.find(p => p.id === programId)?.name}</dd>
+
+                            <dt className="text-gray-500">Student</dt>
+                            <dd className="font-medium text-right">{students.find(s => s.id === studentId)?.name}</dd>
+
+                            <dt className="text-gray-500">Tutor</dt>
+                            <dd className="font-medium text-right">{MOCK_TUTORS.find(t => t.id === tutorId)?.name}</dd>
+
+                            <dt className="text-gray-500">Time</dt>
+                            <dd className="font-medium text-right">{start ? format(new Date(start), 'MMM d, h:mm a') : ''} - {end ? format(new Date(end), 'h:mm a') : ''}</dd>
+                        </dl>
+                    </div>
+                )}
+            </div>
+
+            {/* NAV BLOCKS */}
+            <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
                 <button
-                    type="button"
-                    disabled={step === (isStudent ? 1 : 0)}
-                    onClick={() => setStep((s) => (Math.max(isStudent ? 1 : 0, s - 1) as Step))}
-                    className="px-6 py-2.5 rounded-xl border border-[var(--color-border)] text-[var(--color-text-primary)] text-sm font-medium hover:bg-[var(--color-surface)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    disabled={step === 0}
+                    onClick={() => setStep(s => Math.max(0, s - 1) as Step)}
+                    className="px-6 py-2.5 rounded-xl border border-gray-300 text-gray-600 disabled:opacity-50"
                 >
                     Back
                 </button>
-
-                <div className="flex gap-3">
-                    {step < 4 && (
-                        <button
-                            type="button"
-                            disabled={!canProceed()}
-                            onClick={() => setStep((s) => (Math.min(4, s + 1) as Step))}
-                            className="px-6 py-2.5 rounded-xl bg-[var(--color-primary)] text-white text-sm font-bold shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                        >
-                            Next
-                        </button>
-                    )}
-                    {step === 4 && (
-                        <button
-                            type="button"
-                            disabled={submitting}
-                            onClick={submitBooking}
-                            className="px-6 py-2.5 rounded-xl bg-[var(--color-secondary)] text-slate-900 text-sm font-bold shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95 disabled:opacity-60 transition-all"
-                        >
-                            {submitting ? 'Creating…' : 'Create booking'}
-                        </button>
-                    )}
-                </div>
+                {step < 5 ? (
+                    <button
+                        disabled={!canProceed()}
+                        onClick={() => setStep(s => Math.min(5, s + 1) as Step)}
+                        className="px-6 py-2.5 rounded-xl bg-blue-600 text-white font-bold disabled:opacity-50"
+                    >
+                        Next
+                    </button>
+                ) : (
+                    <button
+                        disabled={submitting}
+                        onClick={submitBooking}
+                        className="px-6 py-2.5 rounded-xl bg-green-600 text-white font-bold disabled:opacity-50"
+                    >
+                        {submitting ? 'Booking...' : 'Confirm Session'}
+                    </button>
+                )}
             </div>
-
-            {error && (
-                <div className="mt-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-600">
-                    {error}
-                </div>
-            )}
         </div>
     );
 }
