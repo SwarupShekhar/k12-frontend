@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/app/context/AuthContext';
 import Loader from '../components/Loader';
 
-export default function LoginPage() {
+function LoginForm() {
   const { login, loading, setVerificationModalOpen } = useAuthContext();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
@@ -149,5 +149,17 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+        <Loader />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
