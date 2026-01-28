@@ -7,13 +7,18 @@ import SessionChat from '@/app/components/SessionChat';
 import api from '@/app/lib/api';
 // import { DailyProvider } from '@daily-co/daily-react'; // Not used directly, using iframe
 import AttendanceTracker from '@/app/components/session/AttendanceTracker';
+import AttentionFrameworkPanel from '@/app/components/session/AttentionFrameworkPanel';
+import StudentSnapshotCard from '@/app/components/session/StudentSnapshotCard';
+import SessionFlowBar, { SessionPhase } from '@/app/components/session/SessionFlowBar';
+import PhaseGuidancePanel from '@/app/components/session/PhaseGuidancePanel';
+import { io, Socket } from 'socket.io-client';
 
 interface BookingDetails {
     id: string;
     start_time: string;
     subject: { name: string; icon?: string };
-    tutor: { first_name: string; last_name: string };
-    student: { first_name: string; last_name: string };
+    tutor: { id: string; first_name: string; last_name: string };
+    student: { id: string; first_name: string; last_name: string };
     sessions: { id: string }[];
 }
 
@@ -62,6 +67,97 @@ export default function SessionPage({ params }: SessionProps) {
     const isDragging = useRef(false);
     const dragStart = useRef({ x: 0, y: 0 });
     const startPos = useRef({ x: 0, y: 0 });
+
+    // --- Attention Framework State ---
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const [lastResponseTime, setLastResponseTime] = useState<number>(Date.now());
+    const [showResponseNudge, setShowResponseNudge] = useState(false);
+    const [currentPhase, setCurrentPhase] = useState<SessionPhase>('WARM_CONNECT');
+    const [suggestedPhase, setSuggestedPhase] = useState<SessionPhase | null>(null);
+
+    // Mock Student Data (In production, fetch from student profile)
+    const mockStudentData = {
+        name: booking?.student?.first_name ? `${booking.student.first_name} ${booking.student.last_name}` : 'Student',
+        interests: ['Minecraft', 'Space Exploration', 'Piano'],
+        recentProgress: 'Mastered 2D geometry, now moving to coordinate planes.',
+        struggleAreas: ['Word problems with fractions']
+    };
+
+    // Initialize Shared Socket for Attention Events
+    useEffect(() => {
+        if (!user || !sessionId || !hasJoined) return;
+
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+        const SOCKET_URL = `${API_URL}/sessions`;
+
+        console.log('[Attention] Connecting to socket:', SOCKET_URL);
+
+        const newSocket = io(SOCKET_URL, {
+            query: { sessionId, userId: user.id },
+            transports: ['websocket', 'polling'],
+            withCredentials: true
+        });
+
+        setSocket(newSocket);
+
+        newSocket.on('connect', () => {
+            console.log('[Attention] Socket connected');
+            newSocket.emit('joinSession', { sessionId, userId: user.id });
+        });
+
+        // Listen for new response events to reset the nudge timer
+        newSocket.on('session.attentionEvent.created', (event: any) => {
+            if (event.type === 'RESPONSE') {
+                setLastResponseTime(Date.now());
+                setShowResponseNudge(false);
+            }
+
+            // Auto-sync Phase Suggestions
+            const EVENT_TO_PHASE: Record<string, SessionPhase> = {
+                'CHECK_IN': 'WARM_CONNECT',
+                'EXPLANATION': 'MICRO_TEACH',
+                'RESPONSE': 'ACTIVE_RESPONSE',
+                'CORRECTION': 'REINFORCE',
+                'PRAISE': 'REINFORCE'
+            };
+
+            if (EVENT_TO_PHASE[event.type] && EVENT_TO_PHASE[event.type] !== currentPhase) {
+                setSuggestedPhase(EVENT_TO_PHASE[event.type]);
+            }
+        });
+
+        newSocket.on('session.phase.updated', (payload: any) => {
+            console.log('[Attention] Phase updated:', payload.phase);
+            setCurrentPhase(payload.phase as SessionPhase);
+            setSuggestedPhase(null); // Clear suggestion if phase matches
+        });
+
+        return () => {
+            newSocket.disconnect();
+        };
+    }, [user, sessionId, hasJoined]);
+
+    // Response Encouragement Logic (Check every 10 seconds)
+    useEffect(() => {
+        if (user?.role !== 'tutor' || !hasJoined) return;
+
+        const interval = setInterval(() => {
+            const idleTime = Date.now() - lastResponseTime;
+            // If more than 5 minutes (300000ms) without a student response event
+            if (idleTime > 300000) {
+                setShowResponseNudge(true);
+            }
+        }, 10000);
+
+        return () => clearInterval(interval);
+    }, [user?.role, hasJoined, lastResponseTime]);
+
+    const handlePhaseUpdate = (phase: SessionPhase) => {
+        if (!socket) return;
+        socket.emit('session.phase.update', { sessionId, phase });
+        setCurrentPhase(phase);
+        setSuggestedPhase(null);
+    };
 
     // Draggable handlers
     const handleMouseDown = (e: React.MouseEvent) => {
@@ -348,6 +444,84 @@ export default function SessionPage({ params }: SessionProps) {
                 students={sessionRoster}
                 onSave={saveAttendance}
             />
+
+            {/* ATTENTION DESIGN FRAMEWORK OVERLAYS (TUTOR ONLY) */}
+            {user?.role === 'tutor' && hasJoined && (
+                <>
+                    {/* 0. Top: Session Flow Bar */}
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 w-[600px] pointer-events-auto">
+                        <SessionFlowBar
+                            currentPhase={currentPhase}
+                            onPhaseChange={handlePhaseUpdate}
+                        />
+                    </div>
+
+                    {/* 1. Left Sidebar: Student Snapshot & Attention Panel */}
+                    <div className="absolute left-4 top-20 bottom-4 w-80 z-10 flex flex-col gap-4 pointer-events-none">
+                        <div className="pointer-events-auto">
+                            <StudentSnapshotCard
+                                studentName={mockStudentData.name}
+                                interests={mockStudentData.interests}
+                                recentProgress={mockStudentData.recentProgress}
+                                struggleAreas={mockStudentData.struggleAreas}
+                            />
+                        </div>
+
+                        <div className="pointer-events-auto">
+                            <PhaseGuidancePanel phase={currentPhase} suggestions={[]} />
+                        </div>
+
+                        <div className="flex-1 pointer-events-auto min-h-0">
+                            <AttentionFrameworkPanel
+                                sessionId={sessionId}
+                                studentId={booking?.student?.id || 'student-id'}
+                                tutorId={user?.id || 'tutor-id'}
+                                socket={socket}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Phase Suggestion Popup */}
+                    {suggestedPhase && (
+                        <div className="absolute bottom-32 left-8 z-50 animate-in slide-in-from-left-4 fade-in">
+                            <div className="bg-purple-900/90 backdrop-blur-md border border-purple-500/30 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-4">
+                                <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center animate-pulse">
+                                    💡
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold">Suggested Phase</p>
+                                    <p className="text-[10px] text-white/70">Move to <b>{suggestedPhase}</b> loop?</p>
+                                </div>
+                                <button
+                                    onClick={() => suggestedPhase && handlePhaseUpdate(suggestedPhase)}
+                                    className="px-3 py-1 bg-white text-purple-900 rounded-lg text-[10px] font-black uppercase hover:bg-gray-100"
+                                >
+                                    Shift
+                                </button>
+                                <button onClick={() => setSuggestedPhase(null)} className="text-white/40 hover:text-white">✕</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 2. Response Nudge (Structural UX) */}
+                    {showResponseNudge && (
+                        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+                            <div className="bg-amber-100 border-2 border-amber-400 text-amber-900 px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
+                                <span className="text-xl">💡</span>
+                                <p className="font-bold text-sm">
+                                    Let the student explain in their own words.
+                                </p>
+                                <button
+                                    onClick={() => setShowResponseNudge(false)}
+                                    className="ml-2 text-amber-500 hover:text-amber-700 font-bold"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
         </div>
     );
 }

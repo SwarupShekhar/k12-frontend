@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/app/context/AuthContext';
-
 import Loader from '../components/Loader';
 
 export default function LoginPage() {
   const { login, loading, setVerificationModalOpen } = useAuthContext();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -18,16 +19,18 @@ export default function LoginPage() {
       // Pass false to prevent auto-redirect
       await login(email.trim(), password, false);
 
-      // Get user from local storage or context (might be stale in context immediately?)
-      // AuthContext updates state, but it might take a tick.
-      // However, we can check localStorage as AuthContext sets it synchronously before awaiting.
-      // actually AuthContext.login sets localStorage.
       const savedUser = localStorage.getItem('K12_USER');
       if (savedUser) {
         const u = JSON.parse(savedUser);
         if (u.email_verified === false) {
-          // Improve UX: Open the Verification Modal which has the "Resend" button
           setVerificationModalOpen(true);
+          return;
+        }
+
+        // Check for redirect param
+        const redirectPath = searchParams.get('redirect');
+        if (redirectPath) {
+          window.location.href = redirectPath;
           return;
         }
 
